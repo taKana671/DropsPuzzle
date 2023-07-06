@@ -25,4 +25,4 @@ def make_img(width, height, start_arr, stop_arr, horizontal_arr, path):
 
 if __name__ == '__main__':
     # make_img(300, 300, (0, 0, 0, 0), (255, 255, 255, 255), (False, False, False, False), 'test.png')
-    make_img(300, 300, (255, 255, 255, 150), (0, 0, 0, 0), (False, False, False, False), 'test.png')
+    make_img(300, 300, (255, 255, 255, 100), (0, 0, 0, 0), (False, False, False, False), 'test.png')

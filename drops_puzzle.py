@@ -24,7 +24,9 @@ class Game(ShowBase):
         super().__init__()
         self.set_background_color(LColor(0.57, 0.43, 0.85, 1.0))
         self.disable_mouse()
-        self.camera.set_pos(Point3(0, -35, 5))
+        # pos: LPoint3f(0, -39, 1), hpr: LVecBase3f(0, -2.1301, 0)
+        self.camera.set_pos(Point3(0, -39, 1))
+        self.camera.set_hpr(Vec3(0, -2.1, 0))
         self.camera.look_at(Point3(0, 0, 0))
 
         self.world = BulletWorld()
@@ -44,11 +46,24 @@ class Game(ShowBase):
 
         self.blocks.fall()
 
+
+        self.accept('x', self.test_move_camera, ['x', 'up'])
+        self.accept('shift-x', self.test_move_camera, ['x', 'down'])
+        self.accept('y', self.test_move_camera, ['y', 'up'])
+        self.accept('shift-y', self.test_move_camera, ['y', 'down'])
+        self.accept('z', self.test_move_camera, ['z', 'up'])
+        self.accept('shift-z', self.test_move_camera, ['z', 'down'])
+
+        self.accept('h', self.test_move_camera, ['h', 'up'])
+        self.accept('shift-h', self.test_move_camera, ['h', 'down'])
+        self.accept('p', self.test_move_camera, ['p', 'up'])
+        self.accept('shift-p', self.test_move_camera, ['p', 'down'])
+        self.accept('r', self.test_move_camera, ['r', 'up'])
+        self.accept('shift-r', self.test_move_camera, ['r', 'down'])
+
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.taskMgr.add(self.update, 'update')
-
-
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -61,6 +76,60 @@ class Game(ShowBase):
 
         self.world.do_physics(dt)
         return task.cont
+
+    def test_move_camera(self, direction, move):
+        if direction == 'x':
+            x = self.camera.get_x()
+            if move == 'up':
+                self.camera.set_x(x + 2)
+            else:
+                self.camera.set_x(x - 2)
+
+        if direction == 'y':
+            y = self.camera.get_y()
+            if move == 'up':
+                self.camera.set_y(y + 2)
+            else:
+                self.camera.set_y(y - 2)
+
+        if direction == 'z':
+            z = self.camera.get_z()
+            if move == 'up':
+                self.camera.set_z(z + 2)
+            else:
+                self.camera.set_z(z - 2)
+
+        if direction == 'h':
+            h = self.camera.get_h()
+            if move == 'up':
+                self.camera.set_h(h + 2)
+            else:
+                self.camera.set_h(h - 2)
+
+        if direction == 'p':
+            p = self.camera.get_p()
+            if move == 'up':
+                self.camera.set_p(p + 2)
+            else:
+                self.camera.set_p(p - 2)
+
+        if direction == 'r':
+            r = self.camera.get_r()
+            if move == 'up':
+                self.camera.set_r(r + 2)
+            else:
+                self.camera.set_r(r - 2)
+
+        print(f'pos: {self.camera.get_pos()}, hpr: {self.camera.get_hpr()}')
+        
+        
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
