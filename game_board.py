@@ -1,11 +1,10 @@
-from itertools import product
-
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletBoxShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
 from panda3d.core import NodePath, PandaNode, CardMaker
 from panda3d.core import Vec3, Vec4, Point3, BitMask32, LColor
 from panda3d.core import TransparencyAttrib
+from panda3d.core import TransformState
 
 from create_geomnode import Cube
 
@@ -23,6 +22,23 @@ class Block(NodePath):
         shape = BulletBoxShape((tip - end) / 2)
         self.node().add_shape(shape)
         self.set_collide_mask(BitMask32.bit(1))
+
+
+class Compound(NodePath):
+
+    def __init__(self, name, models, color):
+        super().__init__(BulletRigidBodyNode(name))
+        self.compound(models)
+        self.set_collide_mask(BitMask32.bit(1))
+        self.set_color(color)
+
+    def compound(self, models):
+        for model in models:
+            scale = model.get_scale()
+            pos = model.get_pos()
+            shape = BulletBoxShape(scale / 2)
+            self.node().add_shape(shape, TransformState.make_pos(pos))
+            model.reparent_to(self)
 
 
 class Card(NodePath):
@@ -43,58 +59,69 @@ class Card(NodePath):
 
 class GameBoard(NodePath):
 
-    def __init__(self, pos, world):
+    def __init__(self, world):
         super().__init__(PandaNode('game_board'))
         self.world = world
-        self.set_pos(pos)
-        self.create_board()
+        self.create_game_board()
 
-    def create_board(self):
-        geomnode = Cube()
+    def create_game_board(self):
         board_color = LColor(0, 0.5, 0, 1)
+
+        models = [model for model in self.create_cover()]
+        self.cover = Compound('cover', models, board_color)
+        self.cover.set_z(10)
+        self.cover.reparent_to(self)
+        self.world.attach(self.cover.node())
+
+        models = [model for model in self.create_body()]
+        self.body = Compound('cover', models, board_color)
+        self.body.set_z(0)
+        self.body.reparent_to(self)
+        self.world.attach(self.body.node())
+
         tex = base.loader.load_texture('textures/panel.png')
+        self.panels = NodePath('panels')
+        self.panels.reparent_to(self)
+        self.panels.set_transparency(TransparencyAttrib.MAlpha)
+        self.panels.set_texture(tex)
 
-        self.create_body(geomnode, board_color)
-        self.create_frames(geomnode, board_color)
-        self.create_panels(tex)
-        self.flatten_strong()
+        for panel in self.create_panels():
+            panel.reparent_to(self.panels)
+            self.world.attach(panel.node())
 
-    def create_body(self, geomnode, color):
-        body_np = NodePath('body')
-        body_np.reparent_to(self)
-        body_np.set_color(color)
-        hpr = Vec3(0, 0, 0)
-
-        plates = [
-            [Vec3(10, 10, 10), Point3(0, 0, -6)],  # top
-            [Vec3(10, 10, 1), Point3(0, 0, 10)],   # base
+    def create_cover(self):
+        blocks = [
+            [Vec3(3, 10, 1), Point3(-3.5, 0, 0)],
+            [Vec3(3, 10, 1), Point3(3.5, 0, 0)],
+            [Vec3(4, 3, 1), Point3(0, -3.5, 0)],
+            [Vec3(4, 3, 1), Point3(0, 3.5, 0)],
         ]
 
-        for i, (scale, pos) in enumerate(plates):
-            plate = Block(f'body_{i}', geomnode, scale, hpr, pos)
-            plate.reparent_to(body_np)
-            self.world.attach(plate.node())
+        for i, (scale, pos) in enumerate(blocks):
+            model = Cube()
+            model.set_name(f'cover_{i}')
+            model.set_scale(scale)
+            model.set_pos(pos)
 
-    def create_frames(self, geomnode, color):
-        frames_np = NodePath('frames')
-        frames_np.reparent_to(self)
-        frames_np.set_color(color)
+            yield model
 
-        scale = Vec3(0.25, 0.25, 11)
-        hpr = Vec3(0, 0, 0)
+    def create_body(self):
+        blocks = [
+            [Vec3(10, 10, 10), Point3(0, 0, -6)],  # bottom
+            [Vec3(0.25, 0.25, 11), Point3(4.875, -4.875, 4)],
+            [Vec3(0.25, 0.25, 11), Point3(4.875, 4.875, 4)],
+            [Vec3(0.25, 0.25, 11), Point3(-4.875, -4.875, 4)],
+            [Vec3(0.25, 0.25, 11), Point3(-4.875, 4.875, 4)],
+        ]
+        for i, (scale, pos) in enumerate(blocks):
+            model = Cube()
+            model.set_name(f'body_{i}')
+            model.set_scale(scale)
+            model.set_pos(pos)
 
-        for i, (x, y) in enumerate(product((4.875, -4.875), (4.875, -4.875))):
-            pos = Point3(x, y, 4)
-            plate = Block(f'frame_{i}', geomnode, scale, hpr, pos)
-            plate.reparent_to(frames_np)
-            self.world.attach(plate.node())
+            yield model
 
-    def create_panels(self, tex):
-        panels_np = NodePath('panels')
-        panels_np.reparent_to(self)
-        panels_np.set_transparency(TransparencyAttrib.MAlpha)
-        panels_np.set_texture(tex)
-
+    def create_panels(self):
         size = Vec4(5, -5, -5.5, 5.5)
         x, y, z = 4.99, 4.99, 4.0
 
@@ -109,7 +136,6 @@ class GameBoard(NodePath):
             card = CardMaker('card')
             card.set_frame(size)
             geomnode = NodePath(card.generate())
-
             panel = Card(f'panel_{i}', geomnode, hpr, pos)
-            panel.reparent_to(panels_np)
-            self.world.attach(panel.node())
+
+            yield panel
