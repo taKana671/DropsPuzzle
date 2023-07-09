@@ -1,5 +1,7 @@
 import array
 import math
+import random
+from enum import Enum
 
 from panda3d.core import Vec3, Point3, LColor
 from panda3d.core import NodePath
@@ -15,6 +17,24 @@ from panda3d.bullet import BulletRigidBodyNode
 
 from panda3d.core import Vec3, BitMask32, Point3
 # ************************************
+
+
+class Colors(Enum):
+
+    RED = LColor(1, 0, 0, 1)
+    BLUE = LColor(0, 0, 1, 1)
+    YELLOW = LColor(1, 1, 0, 1)
+    GREEN = LColor(0, 0.5, 0, 1)
+    ORANGE = LColor(1, 0.549, 0, 1)
+    MAGENTA = LColor(1, 0, 1, 1)
+    PURPLE = LColor(0.501, 0, 0.501, 1)
+    SKY = LColor(0, 0.74, 1, 1)
+    LIME = LColor(0, 1, 0, 1)
+    VIOLET = LColor(0.54, 0.16, 0.88, 1)
+
+    @classmethod
+    def select(cls, n):
+        return random.sample([m.value for m in cls], n)
 
 
 class GeomRoot(NodePath):
@@ -56,158 +76,6 @@ class GeomRoot(NodePath):
         geom.add_primitive(prim)
         node.add_geom(geom)
         return node
-
-
-class RingShape(GeomRoot):
-    """Create a geom node of torus, spiral, half ring and so on.
-       Args:
-            segs_rcnt (int): the number of segments
-            segs_r (int): the number of segments of the ring
-            segs_s (int): the number of segments of the cross-sections
-            ring_radius (float): the radius of the ring; cannot be negative;
-            section_radius (float): the radius of the cross-sections perpendicular to the ring; cannot be negative;
-            slope (float): the increase of the cross-sections hight
-    """
-
-    def __init__(self, segs_rcnt=24, segs_r=24, segs_s=12, ring_radius=1.2, section_radius=0.5, slope=0):
-        self.segs_rcnt = segs_rcnt
-        self.segs_r = segs_r
-        self.segs_s = segs_s
-        self.ring_radius = ring_radius
-        self.section_radius = section_radius
-        self.slope = slope
-        super().__init__()
-
-    def create_vertices(self, vdata_values, prim_indices):
-        delta_angle_h = 2.0 * math.pi / self.segs_r
-        delta_angle_v = 2.0 * math.pi / self.segs_s
-
-        for i in range(self.segs_rcnt + 1):
-            angle_h = delta_angle_h * i
-            u = i / self.segs_rcnt
-
-            for j in range(self.segs_s + 1):
-                angle_v = delta_angle_v * j
-                r = self.ring_radius - self.section_radius * math.cos(angle_v)
-                c = math.cos(angle_h)
-                s = math.sin(angle_h)
-
-                x = r * c
-                y = r * s
-                z = self.section_radius * math.sin(angle_v) + self.slope * i
-
-                nx = x - self.ring_radius * c
-                ny = y - self.ring_radius * s
-                normal_vec = Vec3(nx, ny, z).normalized()
-                v = 1.0 - j / self.segs_s
-                vdata_values.extend((x, y, z))
-                vdata_values.extend((1, 1, 1, 1))
-                vdata_values.extend(normal_vec)
-                vdata_values.extend((u, v))
-
-        for i in range(self.segs_rcnt):
-            for j in range(0, self.segs_s):
-                idx = j + i * (self.segs_s + 1)
-                prim_indices.extend([idx, idx + 1, idx + self.segs_s + 1])
-                prim_indices.extend([idx + self.segs_s + 1, idx + 1, idx + 1 + self.segs_s + 1])
-
-        return (self.segs_rcnt + 1) * (self.segs_s + 1)
-
-
-class SphericalShape(GeomRoot):
-    """Create a geom node of sphere.
-       Args:
-            radius (int): the radius of sphere;
-            segments (int): the number of surface subdivisions;
-    """
-
-    def __init__(self, radius=1.5, segments=22):
-        self.radius = radius
-        self.segments = segments
-        super().__init__()
-
-    def create_bottom_pole(self, vdata_values, prim_indices):
-        # the bottom pole vertices
-        normal = (0.0, 0.0, -1.0)
-        vertex = (0.0, 0.0, -self.radius)
-        color = (1, 1, 1, 1)
-
-        for i in range(self.segments):
-            u = i / self.segments
-            vdata_values.extend(vertex)
-            vdata_values.extend(color)
-            vdata_values.extend(normal)
-            vdata_values.extend((u, 0.0))
-
-            # the vertex order of the pole vertices
-            prim_indices.extend((i, i + self.segments + 1, i + self.segments))
-
-        return self.segments
-
-    def create_quads(self, index_offset, vdata_values, prim_indices):
-        delta_angle = 2 * math.pi / self.segments
-        color = (1, 1, 1, 1)
-        vertex_count = 0
-
-        # the quad vertices
-        for i in range((self.segments - 2) // 2):
-            angle_v = delta_angle * (i + 1)
-            radius_h = self.radius * math.sin(angle_v)
-            z = self.radius * -math.cos(angle_v)
-            v = 2.0 * (i + 1) / self.segments
-
-            for j in range(self.segments + 1):
-                angle = delta_angle * j
-                c = math.cos(angle)
-                s = math.sin(angle)
-                x = radius_h * c
-                y = radius_h * s
-                normal = Vec3(x, y, z).normalized()
-                u = j / self.segments
-
-                vdata_values.extend((x, y, z))
-                vdata_values.extend(color)
-                vdata_values.extend(normal)
-                vdata_values.extend((u, v))
-
-                # the vertex order of the quad vertices
-                if i > 0 and j <= self.segments:
-                    px = i * (self.segments + 1) + j + index_offset
-                    prim_indices.extend((px, px - self.segments - 1, px - self.segments))
-                    prim_indices.extend((px, px - self.segments, px + 1))
-
-            vertex_count += self.segments + 1
-
-        return vertex_count
-
-    def create_top_pole(self, index_offset, vdata_values, prim_indices):
-        vertex = (0.0, 0.0, self.radius)
-        normal = (0.0, 0.0, 1.0)
-        color = (1, 1, 1, 1)
-
-        # the top pole vertices
-        for i in range(self.segments):
-            u = i / self.segments
-            vdata_values.extend(vertex)
-            vdata_values.extend(color)
-            vdata_values.extend(normal)
-            vdata_values.extend((u, 1.0))
-
-            # the vertex order of the top pole vertices
-            x = i + index_offset
-            prim_indices.extend((x, x + 1, x + self.segments + 1))
-
-        return self.segments
-
-    def create_vertices(self, vdata_values, prim_indices):
-        vertex_count = 0
-
-        # create vertices of the bottom pole, quads, and top pole
-        vertex_count += self.create_bottom_pole(vdata_values, prim_indices)
-        vertex_count += self.create_quads(vertex_count, vdata_values, prim_indices)
-        vertex_count += self.create_top_pole(vertex_count - self.segments - 1, vdata_values, prim_indices)
-
-        return vertex_count
 
 
 class Cube(GeomRoot):
@@ -286,149 +154,30 @@ class Cube(GeomRoot):
         return vertex_count
 
 
-class Cylinder(GeomRoot):
-    """Create a geom node of cylinder.
-       Args:
-            radius (float): the radius of the cylinder; cannot be negative;
-            segs_c (int): subdivisions of the mantle along a circular cross-section; mininum is 3;
-            height (int): length of the cylinder;
-            segs_a (int): subdivisions of the mantle along the axis of rotation; minimum is 1;
-    """
+class DropsGeomRoot(GeomRoot):
 
-    def __init__(self, radius=0.5, segs_c=20, height=1, segs_a=2):
-        self.radius = radius
-        self.segs_c = segs_c
-        self.height = height
-        self.segs_a = segs_a
-        super().__init__()
-
-    def cap_vertices(self, delta_angle, bottom=True):
-        z = 0 if bottom else self.height
-
-        # vertex and uv of the center
-        yield ((0, 0, z), (0.5, 0.5))
-
-        # vertex and uv of triangles
-        for i in range(self.segs_c):
-            angle = delta_angle * i
-            c = math.cos(angle)
-            s = math.sin(angle)
-            x = self.radius * c
-            y = self.radius * s
-            u = 0.5 + c * 0.5
-            v = 0.5 - s * 0.5
-            yield ((x, y, z), (u, v))
-
-    def create_bottom_cap(self, delta_angle, vdata_values, prim_indices):
-        normal = (0, 0, -1)
-        color = (1, 1, 1, 1)
-
-        # bottom cap center and triangle vertices
-        for vertex, uv in self.cap_vertices(delta_angle, bottom=True):
-            vdata_values.extend(vertex)
-            vdata_values.extend(color)
-            vdata_values.extend(normal)
-            vdata_values.extend(uv)
-
-        # the vertex order of the bottom cap vertices
-        for i in range(self.segs_c - 1):
-            prim_indices.extend((0, i + 2, i + 1))
-        prim_indices.extend((0, 1, self.segs_c))
-
-        return self.segs_c + 1
-
-    def create_mantle(self, index_offset, delta_angle, vdata_values, prim_indices):
-        vertex_count = 0
-
-        # mantle triangle vertices
-        for i in range(self.segs_a + 1):
-            z = self.height * i / self.segs_a
-            v = i / self.segs_a
-
-            for j in range(self.segs_c + 1):
-                angle = delta_angle * j
-                x = self.radius * math.cos(angle)
-                y = self.radius * math.sin(angle)
-                normal = Vec3(x, y, 0.0).normalized()
-                u = j / self.segs_c
-                vdata_values.extend((x, y, z))
-                vdata_values.extend((1, 1, 1, 1))
-                vdata_values.extend(normal)
-                vdata_values.extend((u, v))
-
-            vertex_count += self.segs_c + 1
-
-            # the vertex order of the mantle vertices
-            if i > 0:
-                for j in range(self.segs_c):
-                    px = index_offset + i * (self.segs_c + 1) + j
-                    prim_indices.extend((px, px - self.segs_c - 1, px - self.segs_c))
-                    prim_indices.extend((px, px - self.segs_c, px + 1))
-
-        return vertex_count
-
-    def create_top_cap(self, index_offset, delta_angle, vdata_values, prim_indices):
-        normal = (0, 0, 1)
-        color = (1, 1, 1, 1)
-
-        # top cap center and triangle vertices
-        for vertex, uv in self.cap_vertices(delta_angle, bottom=False):
-            vdata_values.extend(vertex)
-            vdata_values.extend(color)
-            vdata_values.extend(normal)
-            vdata_values.extend(uv)
-
-        # the vertex order of top cap vertices
-        for i in range(index_offset + 1, index_offset + self.segs_c):
-            prim_indices.extend((index_offset + self.segs_c, i - 1, i))
-        prim_indices.extend((index_offset + self.segs_c, index_offset, index_offset + self.segs_c - 1))
-
-        return self.segs_c + 1
-
-    def create_vertices(self, vdata_values, prim_indices):
-        delta_angle = 2 * math.pi / self.segs_c
-        vertex_count = 0
-
-        # create vertices of the bottom cap, mantle and top cap.
-        vertex_count += self.create_bottom_cap(delta_angle, vdata_values, prim_indices)
-        vertex_count += self.create_mantle(vertex_count, delta_angle, vdata_values, prim_indices)
-        vertex_count += self.create_top_cap(vertex_count, delta_angle, vdata_values, prim_indices)
-
-        return vertex_count
-
-
-class SphereGeomMaker:
-
-    def __init__(self):
-        self.data = POLYHEDRONS['icosahedron']
-        self.divnum = 3
-        self.make_format()
-
-    def make_format(self):
+    def create_format(self):
         arr_format = GeomVertexArrayFormat()
         arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
         arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
         arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CNormal)
-        self.format_ = GeomVertexFormat.register_format(arr_format)
+        fmt = GeomVertexFormat.register_format(arr_format)
 
-    def make_geomnode(self, colors=None):
-        # self.colors = colors if colors else Colors.select(2)
-        self.colors = [LColor(0, 1, 0, 1), LColor(0.54, 0.16, 0.88, 1)]
-        
-        node = self._make_geomnode()
-        return node
+        return fmt
 
-    def num_rows(self):
-        """One triangle is subdivided into 4.
-           The number of subdivide repetition is self.divnum.
-           An icosahedron has 20 faces and a face has 3 vertices.
-        """
-        return 4 ** self.divnum * 20 * 3
+
+class Sphere(DropsGeomRoot):
+
+    def __init__(self):
+        self.data = POLYHEDRONS['icosahedron']
+        self.divnum = 3
+        self.colors = Colors.select(2)
+        super().__init__()
 
     def calc_midpoints(self, face):
-        """face: A list of Vec3, having 3 elements.
+        """face (list): list of Vec3; having 3 elements like below.
+           [(0, 1), (1, 2), (2, 0)]
         """
-        # (i, j): [(0, 1), (1, 2), (2, 0)]
         for i, pt1 in enumerate(face):
             j = i + 1 if i < len(face) - 1 else 0
             pt2 = face[j]
@@ -458,9 +207,7 @@ class SphereGeomMaker:
                 idx = 0 if any(pt.z == 0 for pt in subdiv_face) else 1
                 yield (subdiv_face, self.colors[idx])
 
-    def _make_geomnode(self):
-        vdata_values = array.array('f', [])
-        prim_indices = array.array("H", [])
+    def create_vertices(self, vdata_values, prim_indices):
         start = 0
 
         for face, rgba in self.faces():
@@ -474,7 +221,44 @@ class SphereGeomMaker:
             prim_indices.extend(indices)
             start += 3
 
-        vdata = GeomVertexData('sphere', self.format_, Geom.UHStatic)
+        return 4 ** self.divnum * 20 * 3
+
+
+class Polyhedron(DropsGeomRoot):
+
+    def __init__(self, key):
+        self.data = POLYHEDRONS[key]
+        super().__init__()
+
+    def faces(self):
+        vertices = self.data['vertices']
+        faces = self.data['faces']
+        color_pattern = set(len(elem) for elem in faces)
+        self.colors = Colors.select(len(color_pattern))
+
+        for face in faces:
+            vert = (vertices[i] for i in face)
+            normal = (Vec3(vertices[i]).normalized() for i in idxes)
+
+            yield (vert, self.colors[n], normal, len(idxes))
+
+    def num_rows(self):
+        return sum(len(face) for face in self.data['faces'])
+
+    def create_vertices(self, vdata_values, prim_indices):
+        start = 0
+
+        for verts, rgba, norms, num_verts in self.faces():
+            for pt, norm in zip(verts, norms):
+                vdata_values.extend(pt)
+                vdata_values.extend(rgba)
+                vdata_values.extend(norm)
+
+            for indices in self.prim_indices(start, num_verts):
+                prim_indices.extend(indices)
+            start += num_verts
+
+        vdata = GeomVertexData('polyhedron', self.format_, Geom.UHStatic)
         vdata.unclean_set_num_rows(self.num_rows())
         vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
         vdata_mem[:] = vdata_values
@@ -489,8 +273,8 @@ class SphereGeomMaker:
         geom = Geom(vdata)
         geom.add_primitive(prim)
         node.add_geom(geom)
-
         return node
+
 
 
 POLYHEDRONS = {
@@ -536,7 +320,7 @@ class TestShape(NodePath):
         model = Cylinder(radius=0.5, segs_c=5, height=1, segs_a=2)
 
         model.reparent_to(self)
-        # obj.reparentTo(self) <= いらない
+        # obj.reparentTo(self) <= not needed
         shape = BulletConvexHullShape()
         shape.addGeom(model.node().getGeom(0))
         self.node().addShape(shape)

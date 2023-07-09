@@ -13,11 +13,11 @@ from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
 
 
-load_prc_file_data("", """
-    window-title Panda3D drops puzzle
-    fullscreen false
-    win-size 800 650
-    win-fixed-size 1""")
+# load_prc_file_data("", """
+#     window-title Panda3D drops puzzle
+#     fullscreen false
+#     win-size 800 650
+#     win-fixed-size 1""")
 
 
 class Game(ShowBase):
@@ -127,7 +127,8 @@ class Game(ShowBase):
 
             if self.clicked:
                 print('clicked')
-                self.drops_cnt = 1
+                # self.drops.fall()
+                self.drops_cnt = 40
                 self.clicked = False
 
             if self.dragging:
@@ -139,8 +140,6 @@ class Game(ShowBase):
             self.drops.fall(self.drops_cnt)
             if self.drops_cnt > 0:
                 self.drops_cnt -= 1
-
-
 
 
         self.world.do_physics(dt)
