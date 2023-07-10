@@ -95,7 +95,6 @@ class GameBoard(NodePath):
         self.pipe.reparent_to(self)
         self.world.attach(self.pipe.node())
         self.pipe.hide()
-
         self.flatten_strong()
 
     def create_cover(self, cube, cover, color):

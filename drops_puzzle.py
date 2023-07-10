@@ -50,7 +50,7 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.game_np)
 
-        self.drops = Drops(7, self.world)
+        self.drops = Drops(self.world, self.game_board.pipe)
         self.drops.reparent_to(self.game_board)
 
         self.clicked = False
@@ -127,20 +127,14 @@ class Game(ShowBase):
 
             if self.clicked:
                 print('clicked')
-                # self.drops.fall()
-                self.drops_cnt = 40
+                self.drops.fall(40)
+                # self.drops_cnt = 40
                 self.clicked = False
 
             if self.dragging:
                 if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
                     print('dragging')
                     self.rotate_camera(mouse_x, dt)
-
-        if self.drops_cnt:
-            self.drops.fall(self.drops_cnt)
-            if self.drops_cnt > 0:
-                self.drops_cnt -= 1
-
 
         self.world.do_physics(dt)
         return task.cont

@@ -1,5 +1,4 @@
 import array
-import math
 import random
 from enum import Enum
 
@@ -7,16 +6,6 @@ from panda3d.core import Vec3, Point3, LColor
 from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
-
-# ************************************
-import sys
-from direct.showbase.ShowBaseGlobal import globalClock
-from direct.showbase.ShowBase import ShowBase
-from panda3d.bullet import BulletWorld, BulletDebugNode, BulletConvexHullShape
-from panda3d.bullet import BulletRigidBodyNode
-
-from panda3d.core import Vec3, BitMask32, Point3
-# ************************************
 
 
 class Colors(Enum):
@@ -171,7 +160,6 @@ class Sphere(DropsGeomRoot):
     def __init__(self):
         self.data = POLYHEDRONS['icosahedron']
         self.divnum = 3
-        self.colors = Colors.select(2)
         super().__init__()
 
     def calc_midpoints(self, face):
@@ -197,29 +185,28 @@ class Sphere(DropsGeomRoot):
                 yield from self.subdivide(face, divnum + 1)
             yield from self.subdivide(midpoints, divnum + 1)
 
-    def faces(self):
+    def create_vertices(self, vdata_values, prim_indices):
         vertices = self.data['vertices']
         faces = self.data['faces']
+        colors = Colors.select(2)
 
-        for tup in faces:
-            face = [Vec3(vertices[n]) for n in tup]
-            for subdiv_face in self.subdivide(face):
-                idx = 0 if any(pt.z == 0 for pt in subdiv_face) else 1
-                yield (subdiv_face, self.colors[idx])
-
-    def create_vertices(self, vdata_values, prim_indices):
         start = 0
 
-        for face, rgba in self.faces():
-            for pt in face:
-                n = pt.normalized()
-                vdata_values.extend(n)
-                vdata_values.extend(rgba)
-                vdata_values.extend(n)
+        for face in faces:
+            face_verts = [Vec3(vertices[n]) for n in face]
+            for subdiv_face in self.subdivide(face_verts):
+                i = 0 if any(pt.z == 0 for pt in subdiv_face) else 1
+                color = colors[i]
 
-            indices = (start, start + 1, start + 2)
-            prim_indices.extend(indices)
-            start += 3
+                for vert in subdiv_face:
+                    normal = vert.normalized()
+                    vdata_values.extend(normal)
+                    vdata_values.extend(color)
+                    vdata_values.extend(normal)
+
+                indices = (start, start + 1, start + 2)
+                prim_indices.extend(indices)
+                start += 3
 
         return 4 ** self.divnum * 20 * 3
 
@@ -230,51 +217,54 @@ class Polyhedron(DropsGeomRoot):
         self.data = POLYHEDRONS[key]
         super().__init__()
 
-    def faces(self):
-        vertices = self.data['vertices']
-        faces = self.data['faces']
-        color_pattern = set(len(elem) for elem in faces)
-        self.colors = Colors.select(len(color_pattern))
+    def triangle(self, start):
+        return (start, start + 1, start + 2)
 
-        for face in faces:
-            vert = (vertices[i] for i in face)
-            normal = (Vec3(vertices[i]).normalized() for i in idxes)
+    def square(self, start):
+        for x, y, z in [(2, 1, 0), (0, 3, 2)]:
+            yield (start + x, start + y, start + z)
 
-            yield (vert, self.colors[n], normal, len(idxes))
+    def polygon(self, start, vertices_num):
+        for i in range(2, vertices_num):
+            if i == 2:
+                yield (start, start + i - 1, start + i)
+            else:
+                yield (start + i - 1, start, start + i)
 
-    def num_rows(self):
-        return sum(len(face) for face in self.data['faces'])
+    def get_indices(self, start, num):
+        match num:
+            case 3:
+                yield self.triangle(start)
+            case 4:
+                yield from self.square(start)
+            case _:
+                yield from self.polygon(start, num)
 
     def create_vertices(self, vdata_values, prim_indices):
+        vertices = self.data['vertices']
+        faces = self.data['faces']
+        nums = set(len(face) for face in faces)
+        colors = Colors.select(len(nums))
+        face_color = {n: colors[i] for i, n in enumerate(nums)}
+
         start = 0
 
-        for verts, rgba, norms, num_verts in self.faces():
-            for pt, norm in zip(verts, norms):
-                vdata_values.extend(pt)
-                vdata_values.extend(rgba)
-                vdata_values.extend(norm)
+        for face in faces:
+            cnt = len(face)
+            color = face_color[len(face)]
+            for idx in face:
+                vertex = Vec3(vertices[idx])
+                normal = vertex.normalized()
 
-            for indices in self.prim_indices(start, num_verts):
+                vdata_values.extend(vertex)
+                vdata_values.extend(color)
+                vdata_values.extend(normal)
+
+            for indices in self.get_indices(start, cnt):
                 prim_indices.extend(indices)
-            start += num_verts
+            start += cnt
 
-        vdata = GeomVertexData('polyhedron', self.format_, Geom.UHStatic)
-        vdata.unclean_set_num_rows(self.num_rows())
-        vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
-        vdata_mem[:] = vdata_values
-
-        prim = GeomTriangles(Geom.UHStatic)
-        prim_array = prim.modify_vertices()
-        prim_array.unclean_set_num_rows(len(prim_indices))
-        prim_mem = memoryview(prim_array).cast('B').cast('H')
-        prim_mem[:] = prim_indices
-
-        node = GeomNode('geomnode')
-        geom = Geom(vdata)
-        geom.add_primitive(prim)
-        node.add_geom(geom)
-        return node
-
+        return sum(len(face) for face in faces)
 
 
 POLYHEDRONS = {
@@ -300,70 +290,49 @@ POLYHEDRONS = {
             (3, 9, 8), (3, 10, 4), (4, 5, 9), (5, 6, 11),
             (5, 11, 9), (6, 7, 11), (7, 8, 11), (8, 9, 11)
         ]
+    },
+    'icosidodecahedron': {
+        'vertices': [
+            (-0.30901699, -0.95105652, -0.00000000),
+            (-0.80901699, -0.58778525, -0.00000000),
+            (-1.00000000, 0.00000000, -0.00000000),
+            (-0.80901699, 0.58778525, -0.00000000),
+            (-0.30901700, 0.95105652, -0.00000000),
+            (0.30901699, 0.95105652, -0.00000000),
+            (0.80901699, 0.58778525, -0.00000000),
+            (1.00000000, 0.00000000, -0.00000000),
+            (0.80901699, -0.58778525, -0.00000000),
+            (0.30901699, -0.95105652, -0.00000000),
+            (0.00000000, -0.85065081, -0.52573111),
+            (-0.80901699, -0.26286556, -0.52573111),
+            (-0.50000000, 0.68819096, -0.52573111),
+            (0.50000000, 0.68819096, -0.52573111),
+            (0.80901699, -0.26286556, -0.52573111),
+            (-0.30901699, -0.42532540, -0.85065081),
+            (-0.50000000, 0.16245985, -0.85065081),
+            (0.00000000, 0.52573111, -0.85065081),
+            (0.50000000, 0.16245985, -0.85065081),
+            (0.30901699, -0.42532540, -0.85065081),
+            (-0.50000000, -0.68819096, 0.52573111),
+            (0.50000000, -0.68819096, 0.52573111),
+            (0.80901699, 0.26286556, 0.52573111),
+            (-0.00000000, 0.85065081, 0.52573111),
+            (-0.80901699, 0.26286556, 0.52573111),
+            (0.00000000, -0.52573111, 0.85065081),
+            (0.50000000, -0.16245985, 0.85065081),
+            (0.30901699, 0.42532540, 0.85065081),
+            (-0.30901699, 0.42532540, 0.85065081),
+            (-0.50000000, -0.16245985, 0.85065081)
+        ],
+        'faces': [
+            (0, 1, 11, 15, 10), (0, 10, 9), (0, 9, 21, 25, 20), (0, 20, 1),
+            (1, 2, 11), (1, 20, 29, 24, 2), (2, 3, 12, 16, 11), (2, 24, 3),
+            (3, 4, 12), (3, 24, 28, 23, 4), (4, 5, 13, 17, 12), (4, 23, 5),
+            (5, 6, 13), (5, 23, 27, 22, 6), (6, 7, 14, 18, 13), (6, 22, 7),
+            (7, 8, 14), (7, 22, 26, 21, 8), (8, 9, 10, 19, 14), (8, 21, 9),
+            (10, 15, 19), (11, 16, 15), (12, 17, 16), (13, 18, 17),
+            (14, 19, 18), (15, 16, 17, 18, 19), (20, 25, 29), (21, 26, 25),
+            (22, 27, 26), (23, 28, 27), (24, 29, 28), (25, 26, 27, 28, 29)
+        ],
     }
 }
-
-
-
-
-class TestShape(NodePath):
-
-    def __init__(self):
-        super().__init__(BulletRigidBodyNode('testShape'))
-        self.reparentTo(base.render)
-        # model = Cube(3, 1.5, 1, 7, 4, 5)
-        # model = Cube(2, 5, 3, 1, 4, 5)
-        # model = Cube(1, 1, 1, 1, 1, 1)
-        # model = RightTriangularPrism2()
-
-        # model = RingShape(segs_rcnt=8, ring_radius=1)
-        model = Cylinder(radius=0.5, segs_c=5, height=1, segs_a=2)
-
-        model.reparent_to(self)
-        # obj.reparentTo(self) <= not needed
-        shape = BulletConvexHullShape()
-        shape.addGeom(model.node().getGeom(0))
-        self.node().addShape(shape)
-        self.setCollideMask(BitMask32(1))
-        self.setScale(1, 1, 1)
-        self.setColor((0, 0, 1, 1))
-        # self.setH(90)
-        # self.setX(10)
-
-        # tex = base.loader.loadTexture('layingrock.jpg')
-        # tex.setWrapU(1)
-        # tex.setWrapV(1)
-        # model.setTexture(tex)
-
-
-class Test(ShowBase):
-
-    def __init__(self):
-        super().__init__()
-        self.disableMouse()
-        self.camera.setPos(10, 10, 10)  # 20, -20, 5
-        self.camera.lookAt(0, 0, 0)
-        self.world = BulletWorld()
-
-        # *******************************************
-        collide_debug = self.render.attachNewNode(BulletDebugNode('debug'))
-        self.world.setDebugNode(collide_debug.node())
-        collide_debug.show()
-        # *******************************************
-
-        shape = TestShape()
-        self.world.attachRigidBody(shape.node())
-        shape.hprInterval(10, (360, 720, 360)).loop()
-        self.accept('escape', sys.exit)
-        self.taskMgr.add(self.update, 'update')
-
-    def update(self, task):
-        dt = globalClock.getDt()
-        self.world.doPhysics(dt)
-        return task.cont
-
-
-
-if __name__ == '__main__':
-    test = Test()
-    test.run()
