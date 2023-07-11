@@ -50,8 +50,9 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.game_np)
 
-        self.drops = Drops(self.world, self.game_board.pipe)
+        self.drops = Drops(self.world, self.game_board)
         self.drops.reparent_to(self.game_board)
+        self.drops.fall(70)
 
         self.clicked = False
         self.dragging = False
@@ -118,23 +119,38 @@ class Game(ShowBase):
         # print('game_np', self.game_np.get_pos(), 'basic_light', self.game_np.get_hpr())
         # print('--------------------------------')
 
+    def choose(self, mouse_pos):
+        near_pos = Point3()
+        far_pos = Point3()
+        self.camLens.extrude(mouse_pos, near_pos, far_pos)
+        from_pos = self.render.get_relative_point(self.cam, near_pos)
+        to_pos = self.render.get_relative_point(self.cam, far_pos)
+        result = self.world.ray_test_closest(from_pos, to_pos, BitMask32.bit(2))
+
+        if result.has_hit():
+            hit_node = result.get_node()
+            # hit_pos = result.get_hit_pos()
+            print('hit', hit_node.get_name())
+            self.drops.find_contact_drops(hit_node)
+            # print(hit_node, hit_node.get_tag('tag'), hit_pos)
+
     def update(self, task):
         dt = globalClock.get_dt()
 
         if self.mouseWatcherNode.has_mouse():
-            # mouse_pos = self.mouseWatcherNode.get_mouse()
-            mouse_x = self.mouseWatcherNode.get_mouse_x()
+            mouse_pos = self.mouseWatcherNode.get_mouse()
 
             if self.clicked:
                 print('clicked')
-                self.drops.fall(40)
+                self.choose(mouse_pos)
+                # self.drops.fall(40)
                 # self.drops_cnt = 40
                 self.clicked = False
 
             if self.dragging:
                 if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
                     print('dragging')
-                    self.rotate_camera(mouse_x, dt)
+                    self.rotate_camera(mouse_pos.x, dt)
 
         self.world.do_physics(dt)
         return task.cont
