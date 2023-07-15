@@ -1,4 +1,5 @@
 import sys
+from enum import Enum, auto
 
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.ShowBase import ShowBase
@@ -6,7 +7,7 @@ from panda3d.core import MouseButton
 from panda3d.bullet import BulletWorld, BulletDebugNode
 from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
-from panda3d.core import Vec3, BitMask32, Point3, LColor
+from panda3d.core import Vec3, BitMask32, Point3, LColor, Point2
 
 from game_board import GameBoard
 from drops import Drops
@@ -19,6 +20,20 @@ from lights import BasicAmbientLight, BasicDayLight
 #     win-size 800 650
 #     win-fixed-size 1""")
 
+# load_prc_file_data("", """
+#     textures-power-2 none
+#     gl-coordinate-system default
+#     window-title Panda3D Drops Puzzl
+#     filled-wireframe-apply-shader true
+#     stm-max-views 8
+#     stm-max-chunk-count 2048""")
+
+
+class Status(Enum):
+
+    MERGE = auto()
+    FALL = auto()
+
 
 class Game(ShowBase):
 
@@ -26,7 +41,7 @@ class Game(ShowBase):
         super().__init__()
         self.set_background_color(LColor(0.57, 0.43, 0.85, 1.0))
         self.disable_mouse()
-
+        import pdb; pdb.set_trace()
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
@@ -45,7 +60,7 @@ class Game(ShowBase):
         self.ambient_light = BasicAmbientLight()
         self.ambient_light.reparent_to(self.game_np)
         self.day_light = BasicDayLight()
-        self.day_light.reparent_to(self.camera_np)
+        self.day_light.reparent_to(self.camera)
 
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.game_np)
@@ -54,9 +69,11 @@ class Game(ShowBase):
         self.drops.reparent_to(self.game_board)
         self.drops.fall(70)
 
+
         self.clicked = False
         self.dragging = False
         self.before_mouse_x = None
+        self.state = None
 
         self.drops_cnt = 0
 
@@ -129,10 +146,14 @@ class Game(ShowBase):
 
         if result.has_hit():
             hit_node = result.get_node()
+            print('hit_node', hit_node)
+            return self.drops.find_contact_drops(hit_node)
+            
             # hit_pos = result.get_hit_pos()
-            print('hit', hit_node.get_name())
-            self.drops.find_contact_drops(hit_node)
-            # print(hit_node, hit_node.get_tag('tag'), hit_pos)
+            # b_pos = self.cam.get_relative_point(NodePath(hit_node), hit_pos)
+            # uv = Point2()
+            # if self.camLens.project(b_pos, uv):
+            #     print(uv)
 
     def update(self, task):
         dt = globalClock.get_dt()
@@ -142,7 +163,8 @@ class Game(ShowBase):
 
             if self.clicked:
                 print('clicked')
-                self.choose(mouse_pos)
+                if self.choose(mouse_pos):
+                    self.state = Status.MERGE
                 # self.drops.fall(40)
                 # self.drops_cnt = 40
                 self.clicked = False
@@ -151,6 +173,14 @@ class Game(ShowBase):
                 if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
                     print('dragging')
                     self.rotate_camera(mouse_pos.x, dt)
+
+        if self.state == Status.MERGE:
+            if self.drops.merge_contact_drops():
+                self.state = Status.FALL
+
+        if self.state == Status.FALL:
+            self.drops.fall(40)
+            self.state = None
 
         self.world.do_physics(dt)
         return task.cont
