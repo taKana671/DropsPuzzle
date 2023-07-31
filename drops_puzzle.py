@@ -41,7 +41,7 @@ class Game(ShowBase):
         super().__init__()
         self.set_background_color(LColor(0.57, 0.43, 0.85, 1.0))
         self.disable_mouse()
-        import pdb; pdb.set_trace()
+
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
@@ -52,7 +52,9 @@ class Game(ShowBase):
 
         self.camera_np = NodePath('camera_np')
         self.camera_np.reparent_to(self.game_np)
-        self.camera.set_pos(Point3(0, -35, 5))  # Point3(0, -39, 1)
+        self.camera.set_pos(Point3(0, -35, 7))  # Point3(0, -39, 1)
+        # self.camera.set_pos(Point3(0, -70, 5))
+        
         self.camera.set_hpr(Vec3(0, -1.6, 0))   # Vec3(0, -2.1, 0)
         # self.camera.look_at(Point3(0, 0, 0))
         self.camera.reparent_to(self.camera_np)
@@ -65,9 +67,9 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.game_np)
 
-        self.drops = Drops(self.world, self.game_board)
+        self.drops = Drops(self.world, self.game_board, self.game_np)
         self.drops.reparent_to(self.game_board)
-        self.drops.fall(70)
+        # self.drops.add(40)
 
 
         self.clicked = False
@@ -107,14 +109,14 @@ class Game(ShowBase):
             self.day_light.node().hide_frustum()
 
     def mouse_click(self):
-        self.dragging = True
+        # self.dragging = True
         self.dragging_start_time = globalClock.get_frame_time()
 
     def mouse_release(self):
         if globalClock.get_frame_time() - self.dragging_start_time < 0.2:
             self.clicked = True
-        self.dragging = False
-        self.before_mouse_x = None
+        # self.dragging = False
+        # self.before_mouse_x = None
 
     def rotate_camera(self, mouse_x, dt):
         if self.before_mouse_x is None:
@@ -145,15 +147,20 @@ class Game(ShowBase):
         result = self.world.ray_test_closest(from_pos, to_pos, BitMask32.bit(2))
 
         if result.has_hit():
+            # *****************************************
+            hit_node = result.get_node()
+            hit_pos = result.get_hit_pos()
+            b_pos = self.cam.get_relative_point(NodePath(hit_node), hit_pos)
+            uv = Point2()
+            if self.camLens.project(b_pos, uv):
+                print(uv)
+            # *****************************************
+
+
             hit_node = result.get_node()
             print('hit_node', hit_node)
             return self.drops.find_contact_drops(hit_node)
             
-            # hit_pos = result.get_hit_pos()
-            # b_pos = self.cam.get_relative_point(NodePath(hit_node), hit_pos)
-            # uv = Point2()
-            # if self.camLens.project(b_pos, uv):
-            #     print(uv)
 
     def update(self, task):
         dt = globalClock.get_dt()
@@ -162,25 +169,26 @@ class Game(ShowBase):
             mouse_pos = self.mouseWatcherNode.get_mouse()
 
             if self.clicked:
-                print('clicked')
+                # print('clicked')
                 if self.choose(mouse_pos):
                     self.state = Status.MERGE
                 # self.drops.fall(40)
                 # self.drops_cnt = 40
                 self.clicked = False
 
-            if self.dragging:
-                if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
-                    print('dragging')
-                    self.rotate_camera(mouse_pos.x, dt)
+            # if self.dragging:
+            #     if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
+            #         # print('dragging')
+            #         self.rotate_camera(mouse_pos.x, dt)
 
         if self.state == Status.MERGE:
             if self.drops.merge_contact_drops():
-                self.state = Status.FALL
+                self.state = None
+                # self.state = Status.FALL
 
-        if self.state == Status.FALL:
-            self.drops.fall(40)
-            self.state = None
+        self.drops.fall()
+
+
 
         self.world.do_physics(dt)
         return task.cont

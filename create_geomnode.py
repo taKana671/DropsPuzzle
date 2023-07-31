@@ -30,6 +30,11 @@ class GeomRoot(NodePath):
 
     def __init__(self):
         geomnode = self.create_geomnode()
+        # super().__init__('geomnode')
+        # self.attach_new_node(geomnode)
+        # self.set_two_sided(True)
+        # self.find('**/+GeomNode').node()
+        # import pdb; pdb.set_trace()
         super().__init__(geomnode)
         self.set_two_sided(True)
 
@@ -141,6 +146,111 @@ class Cube(GeomRoot):
             offset_u += segs2
 
         return vertex_count
+
+
+class RightTriangularPrism(GeomRoot):
+    """Create a geom node of right triangular prism.
+        Arges:
+            w (float): width; dimension along the x-axis; cannot be negative;
+            d (float): depth; dimension along the y-axis; cannot be negative;
+            h (float): height; dimension along the z-axis; cannot be negative;
+            segs_h (int) the number of subdivisions in height
+    """
+
+    def __init__(self, w=1.0, d=1.0, h=1.0, segs_h=2):
+        self.w = w
+        self.d = d
+        self.h = h
+        self.segs_h = segs_h
+        self.color = (1, 1, 1, 1)
+        super().__init__()
+
+    def create_caps(self, points, index_offset, vdata_values, prim_indices):
+        vertex_count = 0
+        normal = (0, 0, 1) if all(pt.z > 0 for pt in points) else (0, 0, -1)
+
+        for i, pt in enumerate(points):
+            # u = i / (len(points) - 1)
+            uv = (i, 0) if i < (len(points) - 1) else (0, 1)
+            vdata_values.extend(pt)
+            vdata_values.extend(self.color)
+            vdata_values.extend(normal)
+            vdata_values.extend(uv)
+            vertex_count += 1
+
+        prim_indices.extend((index_offset, index_offset + 2, index_offset + 1))
+
+        return vertex_count
+
+    def create_sides(self, sides, index_offset, vdata_values, prim_indices):
+        vertex_count = 0
+        vertex = Point3()
+        segs_u = len(sides)
+
+        for a, pts in enumerate(sides):
+            pts_cnt = len(pts)
+
+            if pts[0].y < 0 and pts[1].y > 0:
+                normal = Vec3(1, 1, 0).normalized()
+            elif pts[0].x < 0 and pts[1].x < 0:
+                normal = Vec3(-1, 0, 0)
+            elif pts[0].y < 0 and pts[1].y < 0:
+                normal = Vec3(0, -1, 0)
+
+            for i in range(self.segs_h + 1):
+                v = i / self.segs_h
+                vertex.z = -self.h / 2 + i / self.segs_h * self.h
+
+                for j in range(pts_cnt):
+                    pt = pts[j]
+                    vertex.x, vertex.y = pt.x, pt.y
+                    u = (a + j) / segs_u
+
+                    vdata_values.extend(vertex)
+                    vdata_values.extend(self.color)
+                    vdata_values.extend(normal)
+                    vdata_values.extend((u, v))
+                    vertex_count += 1
+
+                if i > 0:
+                    idx = index_offset + i * 2
+                    prim_indices.extend((idx, idx - 2, idx - 1))
+                    prim_indices.extend((idx, idx - 1, idx + 1))
+
+            index_offset += pts_cnt * (self.segs_h + 1)
+
+        return vertex_count
+
+    def create_vertices(self, vdata_values, prim_indices):
+        half_w = self.w / 2
+        half_d = self.d / 2
+        half_h = self.h / 2
+
+        top = [
+            Point3(-half_w, half_d, half_h),
+            Point3(-half_w, -half_d, half_h),
+            Point3(half_w, -half_d, half_h)
+        ]
+        bottom = [
+            Point3(-half_w, half_d, -half_h),
+            Point3(-half_w, -half_d, -half_h),
+            Point3(half_w, -half_d, -half_h)
+        ]
+
+        sides = [
+            (bottom[0], bottom[1]),
+            (bottom[1], bottom[2]),
+            (bottom[2], bottom[0]),
+        ]
+
+        vertex_count = 0
+        vertex_count += self.create_caps(top, vertex_count, vdata_values, prim_indices)
+        vertex_count += self.create_sides(sides, vertex_count, vdata_values, prim_indices)
+        vertex_count += self.create_caps(bottom, vertex_count, vdata_values, prim_indices)
+
+        return vertex_count
+
+
 
 
 class DropsGeomRoot(GeomRoot):
