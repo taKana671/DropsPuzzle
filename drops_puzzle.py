@@ -170,17 +170,18 @@ class Game(ShowBase):
 
             if self.clicked:
                 if self.choose(mouse_pos):
-                    self.state = Status.DISAPPEAR
+                    self.state = Status.MERGE
                 self.clicked = False
 
-        if self.state == Status.DISAPPEAR:
-            self.drops.disappear()
-            self.state = Status.MERGE
+        # if self.state == Status.DISAPPEAR:
+        #     self.drops.disappear()
+        #     self.state = Status.MERGE
             # if self.drops.merge_contact_drops():
                 # self.state = None
 
         if self.state == Status.MERGE:
-            self.drops.merge()
+            if self.drops.merge():
+                self.state = None
 
  
         self.drops.fall()
