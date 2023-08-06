@@ -83,9 +83,9 @@ if __name__ == '__main__':
     # blur('star.png', 'star_mask.png', (25, 25))
     # transparent('star_mask.png', 'dest.png')
 
-    make_circke_mask(size, ('circle.png'))
-    blur('circle.png', 'circle_blur.png', (135, 135))
-    transparent('circle_blur.png', 'circle_mask.png')
+    # make_circke_mask(size, ('circle.png'))
+    # blur('circle.png', 'circle_blur.png', (135, 135))
+    transparent('mask.png', 'circle_mask_2.png')
 
 
     # make_img(300, 300, (0, 0, 0, 0), (255, 255, 255, 255), (False, False, False, False), 'test.png')

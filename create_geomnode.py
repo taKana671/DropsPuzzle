@@ -251,6 +251,53 @@ class RightTriangularPrism(GeomRoot):
         return vertex_count
 
 
+class TextureAtlasNode(GeomRoot):
+
+    def __init__(self, max_u, start_v):
+        self.max_u = max_u
+        self.start_v = start_v
+        self.color = (1, 1, 1, 1)
+        super().__init__()
+
+    def create_vertices(self, vdata_values, prim_indices):
+        # vertices = [
+        #     (-0.5, 0, -0.5),
+        #     (0.5, 0, -0.5),
+        #     (0.5, 0, 0.5),
+        #     (-0.5, 0, 0.5)
+        # ]
+        # uvs = [
+        #     (0, self.start_v),
+        #     (self.max_u, self.start_v),
+        #     (self.max_u, 1),
+        #     (0, 1)
+        # ]
+
+        vertices = [
+            (-0.5, 0, 0.5),
+            (-0.5, 0, -0.5),
+            (0.5, 0, 0.5),
+            (0.5, 0, -0.5),
+        ]
+        # order is important
+        uvs = [
+            (0, 1),
+            (0, self.start_v),
+            (self.max_u, 1),
+            (self.max_u, self.start_v),
+        ]
+
+        for i, (vertex, uv) in enumerate(zip(vertices, uvs)):
+            vdata_values.extend(vertex)
+            vdata_values.extend(self.color)
+            vdata_values.extend(Vec3(vertex).normalized())
+            vdata_values.extend(uv)
+
+        idx = 2
+        prim_indices.extend((idx, idx - 2, idx - 1))
+        prim_indices.extend((idx, idx - 1, idx + 1))
+
+        return len(vertices)
 
 
 class DropsGeomRoot(GeomRoot):

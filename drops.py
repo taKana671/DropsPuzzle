@@ -6,13 +6,15 @@ from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Vec3, Point3, BitMask32, CardMaker, ColorBlendAttrib
 
-from panda3d.core import Shader, TransparencyAttrib, Texture, FrameBufferProperties, OrthographicLens
+from panda3d.core import Shader, TransparencyAttrib, Texture, FrameBufferProperties, OrthographicLens, TextureStage
 from direct.filter.FilterManager import FilterManager
 from panda3d.core import TransparencyAttrib
 from direct.filter.CommonFilters import CommonFilters
 
-from create_geomnode import Sphere, Polyhedron
+from direct.interval.IntervalGlobal import Sequence
 
+from create_geomnode import Sphere, Polyhedron, TextureAtlasNode
+from visual_effects import VisualEffects
 
 class FallingBlock(NodePath):
 
@@ -85,18 +87,19 @@ class Drops(NodePath):
         super().__init__(PandaNode('drops'))
         self.world = world
         self.game_board = game_board
-        self.contact_nodes = []
+        self.neighbours = []  # deque is better?
         # self.setup()
 
         self.parent_np = parent
         self.drops_q = deque()
         self.drop_num = 0
+        self.vfx = VisualEffects()
 
-        self.drops = {1, 2}
+        self.drops = {1}
 
         self.drops_tbl = {
             1: Convex('drops1', Sphere(), Vec3(0.5)),
-            2: Convex('drops2', Polyhedron('icosidodecahedron'), Vec3(1.2)),
+            2: Convex('drops2', Polyhedron('icosidodecahedron'), Vec3(0.8)),
             # 'drops3': Convex('drops3', Polyhedron('truncated_octahedron'), Vec3(0.7), 4),
         }
 
@@ -111,10 +114,11 @@ class Drops(NodePath):
             # 'drops3': 0.15,
             # 'drops4': 0.05
         }
-        self.create_bubbles()
+
         # self.set_transparency(TransparencyAttrib.MAlpha)
         # filters = CommonFilters(base.win, base.cam)
-        # filters.setBloom(size="large", blend=(1, 0, 0, 0), desat=0.0)
+        # filters.setBloom(size="large", blend=(1, 0, 0, 1), desat=0.0)
+        # filters.setBloom(size="large", blend=(1, 0, 0, 0))
 
     def setup(self):
         end, tip = self.game_board.pipe.get_tight_bounds()
@@ -179,25 +183,23 @@ class Drops(NodePath):
                 drop.set_pos(pos)
                 self.world.attach(drop.node())
 
-    def _find(self, node, tag, contact_nodes):
+    def _find(self, node, tag, neighbours):
         print(node, tag)
-        contact_nodes.append(node)
+        neighbours.append(node)
 
         for con in self.world.contact_test(node, use_filter=True).get_contacts():
             if (contact_node := con.get_node1()) != self.game_board.body.node():
-                if contact_node not in contact_nodes \
+                if contact_node not in neighbours \
                         and contact_node.get_tag('drops_type') == tag:
-                    self._find(contact_node, tag, contact_nodes)
+                    self._find(contact_node, tag, neighbours)
 
-    def find_contact_drops(self, node):
-        self.contact_nodes = []
+    def find_neighbours(self, node):
+        self.neighbours = []
         tag = node.get_tag('drops_type')
-        self._find(node, tag, self.contact_nodes)
-        print(len(self.contact_nodes), [n.get_name() for n in self.contact_nodes])
+        self._find(node, tag, self.neighbours)
+        # print(len(self.contact_nodes), [n.get_name() for n in self.neighbours])
 
-        if len(self.contact_nodes) >= 2:
-            cnt = 30
-            self.add(cnt)
+        if len(self.neighbours) >= 2:
             return True
 
     def add(self, cnt):
@@ -212,114 +214,132 @@ class Drops(NodePath):
             random.sample([drop_id for drop_id, n in props.items() for _ in range(n)], cnt)
         )
 
-    def merge_contact_drops(self):
-        if contact_cnt := len(self.contact_nodes):
-            org_nd = self.contact_nodes.pop()
-            org_np = NodePath(org_nd)
+    def merge(self):
+        if not self.vfx.is_playing:
+            if len(self.neighbours) == 1:
+                drop = self.neighbours.pop()
+                drop = NodePath(drop)
+            
+                merged = self.drops_tbl[2]
+                model = merged.copy_to(self)
+                model.set_pos(drop.get_pos())
+                model.set_name('new')
+                self.world.attach(model.node())
+                self.world.remove(drop.node())
+                drop.remove_node()
+                self.add(20)
 
-            if contact_cnt == 1:
-                tag = org_nd.get_tag('drops_type')
+            if len(self.neighbours) > 1:
+                drop = self.neighbours.pop()
+                drop = NodePath(drop)
+                pos = drop.get_pos()
+                self.world.remove(drop.node())
+                drop.remove_node()
 
-                if name := self.merge_tbl.get(tag):
-                    merged = self.drops_tbl[name]
-                    model = merged.copy_to(self)
-                    model.set_pos(org_np.get_pos())
-                    model.set_name('new')
-                    self.world.attach(model.node())
-
-                    if name in self.proportion_tbl:
-                        self.drops.add(name)
-
-                    return True
-
-                print('self.next_drops has no next one')
-
-            self.world.remove(org_nd)
-            org_np.remove_node()
-            return False
-
-    def create_bubbles2(self):
-        root = NodePath('buffer_root')
-        root.reparent_to(base.render)
-        root.set_pos(0, 10, 0)
-
-        tex = Texture()
-        tex.setWrapU(Texture.WMClamp)
-        tex.setWrapU(Texture.WMClamp)
-        tex.set_magfilter(Texture.FTLinearMipmapLinear)
-        tex.set_minfilter(Texture.FTLinearMipmapLinear)
-        props = FrameBufferProperties()
-        props.set_rgba_bits(16, 16, 0, 0)
-        props.set_srgb_color(False)
-        props.set_float_color(True)
-        buff = base.win.make_texture_buffer('buff', 256, 256, tex, fbp=props)
-        cam = base.make_camera(win=buff)
-        cam.reparent_to(root)
-        cam.set_pos(128, 128, 0)
-        cam.set_p(90)
-        lens = OrthographicLens()
-        lens.set_film_size(256, 256)
-        cam.node().set_lens(lens)
-        cm = CardMaker('plane')
-        cm.set_frame(-128, 128, -128, 128)
-        quad = root.attach_new_node(cm.generate())
-        # quad.set_pos(Point3(0, 10, 0))
-        quad.look_at(0, 1, 0)
-
-        quad.set_shader(
-            Shader.load(Shader.SL_GLSL, 'shaders/bubbles_v.glsl', 'shaders/bubbles_f.glsl'))
-        # quad.set_shader_input('mask', base.loader.load_texture('shaders/circle_mask.png'))
-        props = base.win.get_properties()
-        quad.set_shader_input('u_resolution', props.get_size())
+    def disappear(self):
+        self.vfx.start_disappear('textures/m_blast.png', 2, *self.neighbours)
 
 
-    def create_bubbles(self):
-        cm = CardMaker('bubbles')
-        # cm.set_frame(-2, 2, -2, 2)
-        cm.set_frame(-1, 1, -1, 1)
-        self.bubble_plane = NodePath(cm.generate())
-        self.bubble_plane.look_at(0, 1, 0)
-        self.bubble_plane.set_texture(base.loader.load_texture('shaders/star_mask.png'))
-        self.bubble_plane.setAttrib(ColorBlendAttrib.make(
-            ColorBlendAttrib.M_add,
-            ColorBlendAttrib.O_incoming_alpha,
-            ColorBlendAttrib.O_one
-        ))
+        # if contact_cnt := len(self.contact_nodes):
+        #     org_nd = self.contact_nodes.pop()
+        #     org_np = NodePath(org_nd)
 
+        #     if contact_cnt == 1:
+        #         tag = org_nd.get_tag('drops_type')
 
-        # self.bubble_plane.set_transparency(TransparencyAttrib.MAlpha)
-        self.bubble_plane.set_pos(Point3(0, 0, 0))
-        # self.bubble_plane.set_scale(0.5)
+        #         if name := self.merge_tbl.get(tag):
+        #             merged = self.drops_tbl[name]
+        #             model = merged.copy_to(self)
+        #             model.set_pos(org_np.get_pos())
+        #             model.set_name('new')
+        #             self.world.attach(model.node())
+
+        #             if name in self.proportion_tbl:
+        #                 self.drops.add(name)
+
+        #             return True
+
+        #         print('self.next_drops has no next one')
+
+        #     self.pos = org_np.get_pos(base.render)
+        #     # self.pos.y -= 0.8
+
+        #     # self.world.remove(org_nd)
+        #     # org_np.remove_node()
+
+        #     # self.effect.set_pos(self.pos)
+        #     # self.effect.set_scale(3.0)
+        #     # self.effect.setTexOffset(TextureStage.getDefault(), self.vfxU, self.vfxV)
+        #     self.effect.reparent_to(base.render)
+        #     self.vfxU = -0.125
+        #     self.vfxV = 0
+        #     self.start()
+            
+        #     self.world.remove(org_nd)
+        #     org_np.remove_node()
+            
+            
+        #     # self.bubble_plane.scaleInterval(0.5, 0.05).start()
+        #     # self.bubble_plane.set_pos(pos)
+        #     # self.bubble_plane.set_scale(0.5)
+        #     # self.bubble_plane.reparent_to(base.render)
+        #     # self.bubble_plane.scaleInterval(0.5, 0.05).start()
+
+        #     return False
+
+    # def create_bubbles(self):
+    #     # cm = CardMaker('bubbles')
+    #     # cm.set_frame(-1, 1, -1, 1)
+    #     # self.effect = NodePath(cm.generate())
         
-        # self.bubble_plane.flatten_strong()
-
-        self.bubble_plane.set_shader(
-            Shader.load(Shader.SL_GLSL, 'shaders/bubbles_v.glsl', 'shaders/bubbles_f.glsl'))
-
-        # self.game_board.body.set_shader(
-        #     Shader.load(Shader.SL_GLSL, 'shaders/bubbles_v.glsl', 'shaders/bubbles_f.glsl'))
-
-
-        props = base.win.get_properties()
-        self.bubble_plane.set_shader_input('u_resolution', props.get_size())
-
-        # self.bubble_plane.set_shader_input('mask', base.loader.load_texture('shaders/circle_mask.png'))
-
-        # self.game_board.body.set_shader_input('u_resolution', props.get_size())
-
-        # self.bubble_buffer = base.win.make_texture_buffer('bubbles', 512, 512)
-        # self.bubble_buffer.set_clear_color(base.win.get_clear_color())
-        # self.bubble_buffer.set_sort(-1)
-
-        # self.bubble_camera = base.make_camera(self.bubble_buffer)
-        # self.bubble_camera.node().set_lens(base.camLens)
-        # self.bubble_camera.node().set_camera_mask(BitMask32.bit(3))
-
-        # self.bubble_plane.set_shader_input('uv', (0.5, 0.5))
-        # self.bubble_plane.reparent_to(self.parent_np)
-
-        self.bubble_plane.reparent_to(base.render)
-        # self.bubble_camera.reparent_to(base.render)
-    
+    #     tex_atlas = TextureAtlasNode(0.125, 0.875)
+    #     self.effect = NodePath(tex_atlas)
+    #     # self.effect.look_at(0, -1, 0)
+    #     # self.effect.set_texture(base.loader.load_texture('circle_mask_2.png'))
+    #     self.effect.setAttrib(ColorBlendAttrib.make(
+    #         ColorBlendAttrib.M_add,
+    #         ColorBlendAttrib.O_incoming_alpha,
+    #         ColorBlendAttrib.O_one
+    #     ))
+ 
+    #     tex = base.loader.load_texture('textures/blast2.png')
+    #     # tex.set_magfilter(Texture.FTLinearMipmapLinear)
+    #     # tex.set_minfilter(Texture.FTLinearMipmapLinear)
 
 
+    #     self.effect.set_texture(TextureStage.get_default(), tex, 1)
+    #     # self.effect.reparent_to(base.render)
+    #     self.effect.set_bin('fixed', 40)
+    #     self.effect.set_depth_write(False)
+    #     self.effect.set_depth_test(False)
+    #     self.effect.set_light_off()
+    #     self.effect.set_scale(2)
+    #     self.effect.flatten_light()
+    #     print(self.effect)
+    #     self.Z = 0.0
+    #     self.vfxU = -0.125
+    #     self.vfxV = 0
+
+
+    # def start(self, speed=0.05):
+    #     taskMgr.doMethodLater(speed, self.run, 'vfx')
+        
+    # def run(self, task): 
+    #     # self.effect.setPos(self.getPos(base.render))
+    #     try:
+    #         self.effect.setPos(self.pos)
+    #     except Exception:
+    #         self.effect.reparent_to(base.render)    
+        
+    #     self.effect.setZ(self.effect.getZ()+self.Z)
+    #     self.vfxU=self.vfxU+0.125   
+    #     if self.vfxU>=1.0:
+    #         self.vfxU=0
+    #         self.vfxV=self.vfxV-0.125
+    #     if self.vfxV <=-1:
+    #         # self.effect.removeNode()
+    #         self.effect.detachNode()
+    #         return task.done          
+    #     self.effect.lookAt(base.camera)
+    #     self.effect.setTexOffset(TextureStage.getDefault(), self.vfxU, self.vfxV)
+    #     return task.again

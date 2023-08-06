@@ -31,6 +31,7 @@ from lights import BasicAmbientLight, BasicDayLight
 
 class Status(Enum):
 
+    DISAPPEAR = auto()
     MERGE = auto()
     FALL = auto()
 
@@ -39,7 +40,7 @@ class Game(ShowBase):
 
     def __init__(self):
         super().__init__()
-        self.set_background_color(LColor(0.57, 0.43, 0.85, 1.0))
+        # self.set_background_color(LColor(0.57, 0.43, 0.85, 1.0))
         self.disable_mouse()
 
         self.world = BulletWorld()
@@ -69,7 +70,7 @@ class Game(ShowBase):
 
         self.drops = Drops(self.world, self.game_board, self.game_np)
         self.drops.reparent_to(self.game_board)
-        # self.drops.add(40)
+        self.drops.add(30)
 
 
         self.clicked = False
@@ -156,10 +157,9 @@ class Game(ShowBase):
                 print(uv)
             # *****************************************
 
-
             hit_node = result.get_node()
             print('hit_node', hit_node)
-            return self.drops.find_contact_drops(hit_node)
+            return self.drops.find_neighbours(hit_node)
             
 
     def update(self, task):
@@ -169,23 +169,20 @@ class Game(ShowBase):
             mouse_pos = self.mouseWatcherNode.get_mouse()
 
             if self.clicked:
-                # print('clicked')
                 if self.choose(mouse_pos):
-                    self.state = Status.MERGE
-                # self.drops.fall(40)
-                # self.drops_cnt = 40
+                    self.state = Status.DISAPPEAR
                 self.clicked = False
 
-            # if self.dragging:
-            #     if globalClock.get_frame_time() - self.dragging_start_time >= 0.2:
-            #         # print('dragging')
-            #         self.rotate_camera(mouse_pos.x, dt)
+        if self.state == Status.DISAPPEAR:
+            self.drops.disappear()
+            self.state = Status.MERGE
+            # if self.drops.merge_contact_drops():
+                # self.state = None
 
         if self.state == Status.MERGE:
-            if self.drops.merge_contact_drops():
-                self.state = None
-                # self.state = Status.FALL
+            self.drops.merge()
 
+ 
         self.drops.fall()
 
 
