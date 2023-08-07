@@ -1,4 +1,5 @@
 import sys
+import random
 from enum import Enum, auto
 
 from direct.showbase.ShowBaseGlobal import globalClock
@@ -181,6 +182,7 @@ class Game(ShowBase):
 
         if self.state == Status.MERGE:
             if self.drops.merge():
+                self.drops.add(random.randint(10, 20))
                 self.state = None
 
  
