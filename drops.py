@@ -68,12 +68,11 @@ class Convex(NodePath):
         shape = BulletConvexHullShape()
         shape.add_geom(geomnode.node().get_geom(0))
         self.node().add_shape(shape)
-        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2))
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
         self.node().set_mass(1)
         self.node().deactivation_enabled = False
         self.node().set_restitution(0.3)  # 0.7
         self.set_transparency(TransparencyAttrib.MAlpha)
-
         self.rad = self.get_bounds().get_radius()
 
 

@@ -4,10 +4,10 @@ from enum import Enum, auto
 
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import MouseButton
 from panda3d.bullet import BulletWorld, BulletDebugNode
 from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
+from panda3d.core import LineSegs
 from panda3d.core import Vec3, BitMask32, Point3, LColor, Point2
 
 from game_board import GameBoard
@@ -46,8 +46,6 @@ class Game(ShowBase):
 
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
-        self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
-        self.world.set_debug_node(self.debug.node())
 
         self.game_np = NodePath('game_np')
         self.game_np.reparent_to(self.render)
@@ -71,8 +69,11 @@ class Game(ShowBase):
 
         self.drops = Drops(self.world, self.game_board, self.game_np)
         self.drops.reparent_to(self.game_board)
-        self.drops.add(30)
 
+        self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
+        self.world.set_debug_node(self.debug.node())
+        self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
+        self.debug_line.reparent_to(self.debug)
 
         self.clicked = False
         self.dragging = False
@@ -80,11 +81,13 @@ class Game(ShowBase):
         self.state = None
 
         self.drops_cnt = 0
+        self.drops.add(30)
+
 
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
-        self.accept('mouse1-up', self.mouse_release)
+        # self.accept('mouse1-up', self.mouse_release)
 
         self.taskMgr.add(self.update, 'update')
 
@@ -102,6 +105,26 @@ class Game(ShowBase):
         self.accept('r', self.test_move_camera, ['r', 'up'])
         self.accept('shift-r', self.test_move_camera, ['r', 'down'])
 
+    def make_debug_line(self, from_pt, to_pt, color):
+        lines = LineSegs()
+        lines.set_color(color)
+        lines.move_to(from_pt)
+        lines.draw_to(to_pt)
+        lines.set_thickness(2.0)
+        node = lines.create()
+        return NodePath(node)
+
+    def is_full(self):
+        result = self.world.ray_test_closest(
+            self.game_board.top_l,
+            self.game_board.top_r,
+            BitMask32.bit(3)
+        )
+
+        if result.has_hit():
+            # print(result.get_node().get_name())
+            return True
+
     def toggle_debug(self):
         if self.debug.is_hidden():
             self.debug.show()
@@ -111,34 +134,13 @@ class Game(ShowBase):
             self.day_light.node().hide_frustum()
 
     def mouse_click(self):
-        # self.dragging = True
-        self.dragging_start_time = globalClock.get_frame_time()
+        self.clicked = True
 
-    def mouse_release(self):
-        if globalClock.get_frame_time() - self.dragging_start_time < 0.2:
-            self.clicked = True
-        # self.dragging = False
-        # self.before_mouse_x = None
-
-    def rotate_camera(self, mouse_x, dt):
-        if self.before_mouse_x is None:
-            self.before_mouse_x = mouse_x
-
-        angle = 0
-
-        if (diff := mouse_x - self.before_mouse_x) < 0:
-            angle += 90
-        elif diff > 0:
-            angle -= 90
-
-        angle *= dt
-        self.camera_np.set_h(self.camera_np.get_h() + angle)
-        self.before_mouse_x = mouse_x
-        # print('camera_pos', self.camera.get_pos(), 'camera_hpr', self.camera.get_hpr())
-        # print('camera_navi', self.camera_np.get_pos(), 'camera_navi', self.camera_np.get_hpr())
-        # print('basic_light', self.day_light.get_pos(), 'basic_light', self.day_light.get_hpr())
-        # print('game_np', self.game_np.get_pos(), 'basic_light', self.game_np.get_hpr())
-        # print('--------------------------------')
+    # def mouse_release(self):
+    #     if globalClock.get_frame_time() - self.dragging_start_time < 0.2:
+    #         self.clicked = True
+    #     # self.dragging = False
+    #     # self.before_mouse_x = None
 
     def choose(self, mouse_pos):
         near_pos = Point3()
@@ -168,27 +170,20 @@ class Game(ShowBase):
 
         if self.mouseWatcherNode.has_mouse():
             mouse_pos = self.mouseWatcherNode.get_mouse()
-
             if self.clicked:
                 if self.choose(mouse_pos):
                     self.state = Status.MERGE
                 self.clicked = False
 
-        # if self.state == Status.DISAPPEAR:
-        #     self.drops.disappear()
-        #     self.state = Status.MERGE
-            # if self.drops.merge_contact_drops():
-                # self.state = None
-
         if self.state == Status.MERGE:
             if self.drops.merge():
+                if self.is_full():
+                    print('game over')
+
                 self.drops.add(random.randint(10, 20))
                 self.state = None
-
  
         self.drops.fall()
-
-
 
         self.world.do_physics(dt)
         return task.cont

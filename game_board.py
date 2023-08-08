@@ -83,6 +83,10 @@ class GameBoard(NodePath):
         super().__init__(PandaNode('game_board'))
         self.world = world
         self.create_game_board()
+
+        self.top_l = Point3(-6.5, 0, 13)
+        self.top_r = Point3(6.5, 0, 13)
+
         # self.inseide_dim = (13, 2, 14)
 
     def create_game_board(self):
@@ -98,12 +102,6 @@ class GameBoard(NodePath):
         self.body.reparent_to(self)
         self.world.attach(self.body.node())
 
-        # top
-        # self.cover = Assemblies('cover', Point3(0, 0, 10))
-        # self.create_cover(cube, self.cover, body_color)
-        # self.cover.reparent_to(self)
-        # self.world.attach(self.cover.node())
-
     def create_body(self, body, color):
         blocks = [
             [Cube(w=13, d=2, h=10), [(Point3(0, 0, -6), Vec3(0, 0, 0))]],
@@ -113,7 +111,6 @@ class GameBoard(NodePath):
 
         for i, (obj, details) in enumerate(blocks):
             for j, (pos, hpr) in enumerate(details):
-                print(f'body_{i}{j}')
                 block = body.add_block(f'body_{i}{j}', obj, pos, hpr)
                 block.set_color(color)
 
@@ -134,16 +131,3 @@ class GameBoard(NodePath):
 
         for i, (hpr, pos) in enumerate(panels):
             _ = body.add_card(f'panel_{i}', rect, hpr, pos)
-            # panel.set_texture(tex)
-
-
-    # def create_cover(self, cube, cover, color):
-    #     blocks = [
-    #         [Vec3(3, 10, 1), (Point3(x, 0, 0) for x in (3.5, -3.5))],
-    #         [Vec3(4, 3, 1), (Point3(0, y, 0) for y in (3.5, -3.5))],
-    #     ]
-
-    #     for i, (scale, pos_gen) in enumerate(blocks):
-    #         for j, pos in enumerate(pos_gen):
-    #             block = cover.add_block(f'cover_{i}{j}', cube, scale, pos)
-    #             block.set_color(color)

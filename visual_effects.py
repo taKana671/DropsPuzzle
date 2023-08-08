@@ -116,7 +116,7 @@ class VisualEffects(NodePath):
 
         # if not len(self.vfx_dic):
         if not any(e for e in effects):
-            print('effect finish')
+            # print('effect finish')
             self.is_playing = False
             return task.done
 
