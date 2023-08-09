@@ -7,6 +7,11 @@ from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
 
+from utils import load_obj
+
+
+OBJ_DIR = 'objs'
+
 
 class Colors(Enum):
 
@@ -30,11 +35,6 @@ class GeomRoot(NodePath):
 
     def __init__(self):
         geomnode = self.create_geomnode()
-        # super().__init__('geomnode')
-        # self.attach_new_node(geomnode)
-        # self.set_two_sided(True)
-        # self.find('**/+GeomNode').node()
-        # import pdb; pdb.set_trace()
         super().__init__(geomnode)
         self.set_two_sided(True)
 
@@ -315,7 +315,7 @@ class DropsGeomRoot(GeomRoot):
 class Sphere(DropsGeomRoot):
 
     def __init__(self):
-        self.data = POLYHEDRONS['icosahedron']
+        self.obj_file = f'{OBJ_DIR}/icosahedron.obj'
         self.divnum = 3
         super().__init__()
 
@@ -343,12 +343,10 @@ class Sphere(DropsGeomRoot):
             yield from self.subdivide(midpoints, divnum + 1)
 
     def create_vertices(self, vdata_values, prim_indices):
-        vertices = self.data['vertices']
-        faces = self.data['faces']
+        vertices, faces = load_obj(self.obj_file)
         colors = Colors.select(2)
 
         start = 0
-
         for face in faces:
             face_verts = [Vec3(vertices[n]) for n in face]
             for subdiv_face in self.subdivide(face_verts):
@@ -370,8 +368,8 @@ class Sphere(DropsGeomRoot):
 
 class Polyhedron(DropsGeomRoot):
 
-    def __init__(self, key):
-        self.data = POLYHEDRONS[key]
+    def __init__(self, file_name):
+        self.obj_file = f'{OBJ_DIR}/{file_name}'
         super().__init__()
 
     def triangle(self, start):
@@ -398,8 +396,7 @@ class Polyhedron(DropsGeomRoot):
                 yield from self.polygon(start, num)
 
     def create_vertices(self, vdata_values, prim_indices):
-        vertices = self.data['vertices']
-        faces = self.data['faces']
+        vertices, faces = load_obj(self.obj_file)
         nums = set(len(face) for face in faces)
         colors = Colors.select(len(nums))
         face_color = {n: colors[i] for i, n in enumerate(nums)}

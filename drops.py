@@ -103,8 +103,13 @@ class Drops(NodePath):
         self.drops = {'d1'}
 
         d1 = Convex('d1', Sphere(), Vec3(0.5))
-        d2 = Convex('d2', Polyhedron('icosidodecahedron'), Vec3(0.75))
-        d3 = Convex('d3', Polyhedron('truncated_octahedron'), Vec3(1.0))
+        d2 = Convex('d2', Polyhedron('icosidodecahedron.obj'), Vec3(0.6))
+        d3 = Convex('d3', Polyhedron('elongated_pentagonal_gyrobirotunda.obj'), Vec3(0.7)) # 丸いほうがいい
+        d4 = Convex('d4', Polyhedron('parabiaugmented_truncated_dodecahedron.obj'), Vec3(0.8))
+        d5 = Convex('d5', Polyhedron('Truncated_cuboctahedron.obj'), Vec3(0.9))
+        d6 = Convex('d6', Polyhedron('elongated_pentagonal_orthocupolarotunda.obj'), Vec3(1.0))
+        d7 = Convex('d7', Polyhedron('parabigyrate_rhombicosidodecahedron.obj'), Vec3(1.1))
+        d8 = Convex('d8', Polyhedron('truncated_icosidodecahedron.obj'), Vec3(1.2))
 
         self.drops_tbl = {
             'd1': Drop(
@@ -121,10 +126,40 @@ class Drops(NodePath):
                 proportion=0.3),
             'd3': Drop(
                 model=d3,
-                merge_into=None,
+                merge_into=d4,
                 vfx='textures/m_blast.png',
                 scale=3,
+                proportion=0.2),
+            'd4': Drop(
+                model=d4,
+                merge_into=d5,
+                vfx='textures/m_blast.png',
+                scale=3.5,
                 proportion=0.15),
+            'd5': Drop(
+                model=d5,
+                merge_into=d6,
+                vfx='textures/m_blast.png',
+                scale=4.0,
+                proportion=None),
+            'd6': Drop(
+                model=d6,
+                merge_into=d7,
+                vfx='textures/m_blast.png',
+                scale=4.5,
+                proportion=None),
+            'd7': Drop(
+                model=d7,
+                merge_into=d8,
+                vfx='textures/m_blast.png',
+                scale=5.0,
+                proportion=None),
+            'd8': Drop(
+                model=d8,
+                merge_into=None,
+                vfx='textures/m_blast.png',
+                scale=5.5,
+                proportion=None),
         }
 
         # self.set_transparency(TransparencyAttrib.MAlpha)
@@ -224,7 +259,10 @@ class Drops(NodePath):
                 node = self.neighbours[0]
                 pos = NodePath(node).get_pos()
                 self.create_new_drop(self.new_drop, pos)
-                self.drops.add(self.new_drop.get_tag('stage'))
+
+                stage = self.new_drop.get_tag('stage')
+                if self.drops_tbl[stage].proportion:
+                    self.drops.add(stage)
 
             for node in self.neighbours:
                 self.world.remove(node)
