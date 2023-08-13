@@ -1,21 +1,44 @@
-from panda3d.core import NodePath, PandaNode
+from collections import deque
+from typing import NamedTuple
+
+from panda3d.core import NodePath
 from panda3d.core import ColorBlendAttrib, TextureStage
-from panda3d.core import Vec2
 
 from create_geomnode import TextureAtlasNode
 
 
+class TextureAtlas:
+
+    def __init__(self, file_name, cols=8, rows=8, tgt_remove_col=8, tgt_remove_row=4):
+        self.texture = self.load(file_name)
+        self.div_u = 1 / cols
+        self.div_v = 1 / rows
+        self.tgt_remove_u = self.div_u * tgt_remove_col
+        self.tgt_remove_v = -self.div_v * tgt_remove_row
+
+    def load(self, file_name):
+        path = f'textures/{file_name}'
+        tex = base.loader.load_texture(path)
+        return tex
+
+
+class VFXSetting(NamedTuple):
+
+    texture: TextureAtlas
+    scale: float
+
+
 class VFX(NodePath):
 
-    def __init__(self, texture, split_size, scale, target):
-        self.div_u, self.div_v = 1 / split_size.x, 1 / split_size.y
-        super().__init__(TextureAtlasNode(self.div_u, 1 - self.div_v))
+    def __init__(self, vfx_settings, target):
+        tex, scale = vfx_settings.texture, vfx_settings.scale
+        super().__init__(TextureAtlasNode(tex.div_u, 1 - tex.div_v))
         self.set_attrib(ColorBlendAttrib.make(
             ColorBlendAttrib.M_add,
             ColorBlendAttrib.O_incoming_alpha,
             ColorBlendAttrib.O_one
         ))
-        self.set_texture(TextureStage.get_default(), texture, 1)
+        self.set_texture(TextureStage.get_default(), tex.texture, 1)
         self.set_bin('fixed', 40)
         self.set_depth_write(False)
         self.set_depth_test(False)
@@ -24,30 +47,47 @@ class VFX(NodePath):
         self.flatten_light()
 
         self.target = target
-        self.tex_u = -self.div_u
-        self.tex_v = 0
+        self.target_pos = target.get_pos(base.render)
+        self.pos_u = -tex.div_u
+        self.pos_v = 0
+        self.tex = tex
+
+    def texture_offset(self):
+        self.set_pos(self.target_pos)
+        self.pos_u += self.tex.div_u
+
+        # go to the next row
+        if self.pos_u >= 1.0:
+            self.pos_u = 0
+            self.pos_v -= self.tex.div_v
+        # comes to the end
+        if self.pos_v <= -1:
+            return False
+
+        self.look_at(base.camera)
+        self.set_tex_offset(TextureStage.get_default(), self.pos_u, self.pos_v)
+
+        return True
 
 
-class VisualEffects(NodePath):
+class VFXManager(NodePath):
 
     def __init__(self):
         super().__init__('visual_effects')
         self.reparent_to(base.render)
-        self.is_playing = False
+        self.drops_q = deque()
 
-    def make_effects(self, tex_path, split_size, scale, *targets):
-        tex = base.loader.load_texture(tex_path)
-
-        for target in targets:
-            target_np = NodePath(target)
-            vfx = VFX(tex, split_size, scale, target_np)
+    def make_effects(self, vfx_settings, *targets):
+        for target_nd in targets:
+            target_nd.set_tag('effecting', '')
+            target_np = NodePath(target_nd)
+            vfx = VFX(vfx_settings, target_np)
             vfx.reparent_to(self)
             yield vfx
 
-    def start_disappear(self, tex_path, scale, *targets, split_size=Vec2(8, 8), delay=0.05):
-        effects = [e for e in self.make_effects(tex_path, split_size, scale, *targets)]
+    def start_disappear(self, vfx_settings, *targets, delay=0.05):
+        effects = [e for e in self.make_effects(vfx_settings, *targets)]
 
-        self.is_playing = True
         base.taskMgr.do_method_later(
             delay,
             self.disappear,
@@ -56,68 +96,16 @@ class VisualEffects(NodePath):
             appendTask=True
         )
 
-    def texture_offset(self, vfx):
-        vfx.set_pos(vfx.target.get_pos(base.render))
-        vfx.tex_u += vfx.div_u
-
-        # go to the next row
-        if vfx.tex_u >= 1.0:
-            vfx.tex_u = 0
-            vfx.tex_v -= vfx.div_v
-        # comes to the col end
-        if vfx.tex_v <= -1:
-            return False
-
-        vfx.look_at(base.camera)
-        vfx.set_tex_offset(TextureStage.get_default(), vfx.tex_u, vfx.tex_v)
-
-        return True
-
     def disappear(self, effects, task):
-        for i in range(len(effects)):
-            vfx = effects[i]
+        for i, vfx in enumerate(effects):
+            if vfx.pos_u + vfx.tex.div_u == vfx.tex.tgt_remove_u \
+                    and vfx.pos_v == vfx.tex.tgt_remove_v:
+                self.drops_q.append(vfx.target)
 
-            if vfx.tex_u + vfx.div_u == 1.0 and vfx.tex_v == 0:
-                vfx.target.hide()
-
-            if not self.texture_offset(vfx):
+            if not vfx.texture_offset():
                 effects[i] = vfx.remove_node()
 
         if not any(e for e in effects):
-            self.is_playing = False
-            return task.done
-
-        return task.again
-
-    def run(self, effects, task):
-        # for parent, vfx in list(self.vfx_dic.items()):
-        # for vfx in effects:
-        for i in range(len(effects)):
-            vfx = effects[i]
-            vfx.set_pos(vfx.target.get_pos(base.render))
-            vfx.tex_u += vfx.div_u
-
-            if vfx.tex_u == 1.0 and vfx.tex_v == 0:
-                vfx.target.hide()
-
-            # go to the next row
-            if vfx.tex_u >= 1.0:
-                # NodePath(parent).hide()
-                vfx.tex_u = 0
-                vfx.tex_v -= vfx.div_v
-            # comes to the col end
-            if vfx.tex_v <= -1:
-                effects[i] = vfx.remove_node()
-                # del self.vfx_dic[parent]
-                continue
-
-            vfx.look_at(base.camera)
-            vfx.set_tex_offset(TextureStage.get_default(), vfx.tex_u, vfx.tex_v)
-
-        # if not len(self.vfx_dic):
-        if not any(e for e in effects):
-            # print('effect finish')
-            self.is_playing = False
             return task.done
 
         return task.again

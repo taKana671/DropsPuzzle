@@ -81,7 +81,9 @@ class Game(ShowBase):
         self.state = None
 
         self.drops_cnt = 0
-        self.drops.add(30)
+
+        # self.taskMgr.do_method_later(0.2, self.drops.add, 'add')
+        self.drops.add()
 
 
         self.accept('escape', sys.exit)
@@ -151,18 +153,10 @@ class Game(ShowBase):
         result = self.world.ray_test_closest(from_pos, to_pos, BitMask32.bit(2))
 
         if result.has_hit():
-            # *****************************************
             hit_node = result.get_node()
-            hit_pos = result.get_hit_pos()
-            b_pos = self.cam.get_relative_point(NodePath(hit_node), hit_pos)
-            uv = Point2()
-            if self.camLens.project(b_pos, uv):
-                print(uv)
-            # *****************************************
-
-            hit_node = result.get_node()
-            print('hit_node', hit_node)
-            return self.drops.find_neighbours(hit_node)
+            if not hit_node.has_tag('effecting'):
+                print('hit_node', hit_node)
+                return self.drops.find_neighbours(hit_node)
             
 
     def update(self, task):
@@ -171,18 +165,21 @@ class Game(ShowBase):
         if self.mouseWatcherNode.has_mouse():
             mouse_pos = self.mouseWatcherNode.get_mouse()
             if self.clicked:
-                if self.choose(mouse_pos):
-                    self.state = Status.MERGE
+                self.choose(mouse_pos)
                 self.clicked = False
+                # if self.choose(mouse_pos):
+                #     self.state = Status.MERGE
+                # self.clicked = False
 
-        if self.state == Status.MERGE:
-            if self.drops.merge():
-                if self.is_full():
-                    print('game over')
+        # if self.state == Status.MERGE:
+        #     if self.drops.merge():
+        #         if self.is_full():
+        #             print('game over')
 
-                self.drops.add(random.randint(10, 20))
-                self.state = None
- 
+        #         self.drops.add(random.randint(10, 20))
+        #         self.state = None
+
+        self.drops.merge()
         self.drops.fall()
 
         self.world.do_physics(dt)
