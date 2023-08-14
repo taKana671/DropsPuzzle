@@ -2,6 +2,7 @@ from collections import deque
 from typing import NamedTuple
 
 from panda3d.core import NodePath
+from panda3d.core import Vec3
 from panda3d.core import ColorBlendAttrib, TextureStage
 
 from create_geomnode import TextureAtlasNode
@@ -9,12 +10,12 @@ from create_geomnode import TextureAtlasNode
 
 class TextureAtlas:
 
-    def __init__(self, file_name, cols=8, rows=8, tgt_remove_col=8, tgt_remove_row=4):
+    def __init__(self, file_name, cols=8, rows=8, vfx_end_row=8, tgt_remove_row=4):
         self.texture = self.load(file_name)
         self.div_u = 1 / cols
         self.div_v = 1 / rows
-        self.tgt_remove_u = self.div_u * tgt_remove_col
         self.tgt_remove_v = -self.div_v * tgt_remove_row
+        self.vfx_end_v = -self.div_v * vfx_end_row
 
     def load(self, file_name):
         path = f'textures/{file_name}'
@@ -26,12 +27,13 @@ class VFXSetting(NamedTuple):
 
     texture: TextureAtlas
     scale: float
+    offset: Vec3 = Vec3(0, 0, 0)
 
 
 class VFX(NodePath):
 
-    def __init__(self, vfx_settings, target):
-        tex, scale = vfx_settings.texture, vfx_settings.scale
+    def __init__(self, settings, target):
+        tex = settings.texture
         super().__init__(TextureAtlasNode(tex.div_u, 1 - tex.div_v))
         self.set_attrib(ColorBlendAttrib.make(
             ColorBlendAttrib.M_add,
@@ -43,25 +45,29 @@ class VFX(NodePath):
         self.set_depth_write(False)
         self.set_depth_test(False)
         self.set_light_off()
-        self.set_scale(scale)
+        self.set_scale(settings.scale)
         self.flatten_light()
 
         self.target = target
-        self.target_pos = target.get_pos(base.render)
         self.pos_u = -tex.div_u
         self.pos_v = 0
+
+        self.offset = settings.offset
         self.tex = tex
 
     def texture_offset(self):
-        self.set_pos(self.target_pos)
+        if self.target:
+            self.set_pos(self.target.get_pos(base.render) + self.offset)
+
         self.pos_u += self.tex.div_u
 
         # go to the next row
         if self.pos_u >= 1.0:
             self.pos_u = 0
             self.pos_v -= self.tex.div_v
+
         # comes to the end
-        if self.pos_v <= -1:
+        if self.pos_v <= self.tex.vfx_end_v:
             return False
 
         self.look_at(base.camera)
@@ -83,6 +89,7 @@ class VFXManager(NodePath):
             target_np = NodePath(target_nd)
             vfx = VFX(vfx_settings, target_np)
             vfx.reparent_to(self)
+
             yield vfx
 
     def start_disappear(self, vfx_settings, *targets, delay=0.05):
@@ -98,9 +105,10 @@ class VFXManager(NodePath):
 
     def disappear(self, effects, task):
         for i, vfx in enumerate(effects):
-            if vfx.pos_u + vfx.tex.div_u == vfx.tex.tgt_remove_u \
+            if vfx.pos_u + vfx.tex.div_u == 1.0 \
                     and vfx.pos_v == vfx.tex.tgt_remove_v:
                 self.drops_q.append(vfx.target)
+                vfx.target = None
 
             if not vfx.texture_offset():
                 effects[i] = vfx.remove_node()

@@ -1,3 +1,6 @@
+import glob
+import os
+
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -76,18 +79,54 @@ def make_circke_mask(size, file_path):
     cv2.imwrite(file_path, mask)
 
 
+def crop_img(path, save_dir, cols, rows):
+    img = Image.open(path)
+    w, h = img.size
+    w_crop = w / cols
+    h_crop = h / rows
+
+    for i in range(rows):
+        upper = i * h_crop
+        lower = upper + h_crop
+
+        for j in range(cols):
+            left = j * w_crop
+            right = left + w_crop
+            img_crop = img.crop((left, upper, right, lower))
+            img_crop.save(f'{save_dir}/{i * cols + j}.png', quality=95)
+
+
+def paste_img(file_name, w, h, rows, cols):
+    dest = Image.new('RGBA', (w, h), (255, 255, 255, 0))
+    width = int(w / cols)
+    height = int(h / rows)
+
+    li = glob.glob('work/*.png')
+    li.sort(key=lambda x: int(os.path.basename(x).split('.')[0]))
+    limit = rows * cols
+
+    r, c = 0, 0
+
+    for i, f in enumerate(li[:limit]):
+        img = Image.open(f)
+        resized = img.resize((width, height))
+
+        if i % cols == 0:
+            r += 1
+            c = 0
+
+        dest.paste(resized, (c * width, r * height))
+        c += 1
+
+    dest.save(f'{file_name}.png', quality=95)
+
+
+def delete_files(dir):
+    for f in glob.glob(f'{dir}/*.png'):
+        os.remove(f)
+
 
 if __name__ == '__main__':
-    size = (300, 300)
-    # make_star_mask(size, 6, 100, 0.1, 'star.png')
-    # blur('star.png', 'star_mask.png', (25, 25))
-    # transparent('star_mask.png', 'dest.png')
-
-    # make_circke_mask(size, ('circle.png'))
-    # blur('circle.png', 'circle_blur.png', (135, 135))
-    transparent('mask.png', 'circle_mask_2.png')
-
-
-    # make_img(300, 300, (0, 0, 0, 0), (255, 255, 255, 255), (False, False, False, False), 'test.png')
-    # make_img(300, 300, (255, 255, 255, 100), (0, 0, 0, 0), (False, False, False, False), 'test.png')
-    # make_img(300, 300, (220, 220, 220, 100), (0, 0, 0, 0), (False, False, False, False), 'test.png')
+    # delete_files('work')
+    # crop_img('animations e15.png', 'work', 5, 4)
+    paste_img('paste8', 1024, 1024, 8, 8)
