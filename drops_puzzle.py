@@ -67,7 +67,7 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.game_np)
 
-        self.drops = Drops(self.world, self.game_board, self.game_np)
+        self.drops = Drops(self.world, self.game_board)
         self.drops.reparent_to(self.game_board)
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
@@ -138,12 +138,6 @@ class Game(ShowBase):
     def mouse_click(self):
         self.clicked = True
 
-    # def mouse_release(self):
-    #     if globalClock.get_frame_time() - self.dragging_start_time < 0.2:
-    #         self.clicked = True
-    #     # self.dragging = False
-    #     # self.before_mouse_x = None
-
     def choose(self, mouse_pos):
         near_pos = Point3()
         far_pos = Point3()
@@ -157,7 +151,6 @@ class Game(ShowBase):
             if not hit_node.has_tag('effecting'):
                 print('hit_node', hit_node)
                 return self.drops.find_neighbours(hit_node)
-            
 
     def update(self, task):
         dt = globalClock.get_dt()
@@ -179,6 +172,7 @@ class Game(ShowBase):
         #         self.drops.add(random.randint(10, 20))
         #         self.state = None
 
+        self.drops.jump()
         self.drops.merge()
         self.drops.fall()
 

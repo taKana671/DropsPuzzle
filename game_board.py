@@ -11,21 +11,6 @@ from panda3d.core import TransformState
 from create_geomnode import Cube, RightTriangularPrism
 
 
-# class Block(NodePath):
-
-#     def __init__(self, name, geomnode, scale, hpr, pos):
-#         super().__init__(BulletRigidBodyNode(name))
-#         self.set_scale(scale)
-#         self.set_pos(pos)
-#         self.set_hpr(hpr)
-#         self.block = geomnode.copy_to(self)
-
-#         end, tip = self.block.get_tight_bounds()
-#         shape = BulletBoxShape((tip - end) / 2)
-#         self.node().add_shape(shape)
-#         self.set_collide_mask(BitMask32.bit(1))
-
-
 class Assemblies(NodePath):
 
     def __init__(self, name, pos, restitution=0.0):
