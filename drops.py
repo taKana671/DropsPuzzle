@@ -83,6 +83,7 @@ class Drops(NodePath):
         self.game_board = game_board
         # self.setup()
 
+        self.smiley = None
         self.smiley_q = deque()
         self.drops_q = deque()
         self.serial = -1
@@ -100,13 +101,7 @@ class Drops(NodePath):
         d6 = Convex('d6', Polyhedron('d6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
         # d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.4))   # Parabigyrate diminished rhombicosidodecahedron
         d7 = Convex('d7', Polyhedron('s06.obj'), Vec3(1.5))
-        # d8 = Convex('d8', Polyhedron('truncated_icosidodecahedron.obj'), Vec3(1.2))
-        # d8 = base.loader.loadModel('smiley')
-
         self.d8 = base.loader.loadModel('smiley')
-        # self.smiley = base.loader.loadModel('smiley')
-        
-        # self.smiley = Smiley('d8', 1.5)
 
         d1_tex = TextureAtlas('boom_fire.png', tgt_remove_row=2)
         d2_tex = TextureAtlas('blast2.png', vfx_end_row=6, tgt_remove_row=2)
@@ -126,7 +121,7 @@ class Drops(NodePath):
             'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=d6_tex, scale=5.5), appendable=False),
             'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=d7_tex, scale=6.5), appendable=False),
             # 'd8': Drop(model=d8, merge_into=None, vfx=VFXSetting(texture=d2_tex, scale=5.5), appendable=False),
-            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d4_tex, scale=2.0), appendable=False, last=True),
+            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d4_tex, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True),
         }
 
         # self.set_transparency(TransparencyAttrib.MAlpha)
@@ -211,7 +206,7 @@ class Drops(NodePath):
             next_stage = drop.merge_into
             clicked_nd.set_tag('merge', next_stage)
 
-            self.vfx.start_disappear(drop.vfx, *self.neighbours)
+            self.vfx.disappear(drop.vfx, *self.neighbours)
             return True
 
     def set_drop_numbers(self, total):
@@ -228,10 +223,10 @@ class Drops(NodePath):
     def add(self):
         match len(self.appendable_drops):
             case 0:
-                self.appendable_drops.append('d7')
-                total = random.randint(5, 5)
-                # self.appendable_drops.append('d1')
-                # total = random.randint(30, 40)
+                # self.appendable_drops.append('d7')
+                # total = random.randint(5, 5)
+                self.appendable_drops.append('d1')
+                total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -265,17 +260,25 @@ class Drops(NodePath):
         start = np.get_pos()
         dest_1 = Point3(0, -10, 0)
         dest_2 = Point3(9, 0, 12)
+        drop = self.drops[np.get_tag('stage')]
+        vfx = self.vfx.disappear
+
+        if not self.smiley:
+            self.smiley = drop
+            vfx = self.vfx.short
 
         Sequence(
             Func(np.make_movable),
             Parallel(
                 Sequence(
                     ProjectileInterval(np, duration=1.0, startPos=start, endPos=dest_1, gravityMult=1.0),
+                    Func(self.add),
                     ProjectileInterval(np, duration=1.0, startPos=dest_1, endPos=dest_2, gravityMult=1.0),
                 ),
                 np.hprInterval(2.0, (360, 720, 360))
             ),
-            Func(self.add)
+            Func(vfx, drop.vfx, np),
+            # Func(self.add)
         ).start()
 
         return task.done
@@ -293,92 +296,6 @@ class Drops(NodePath):
             )
         except IndexError:
             pass
-
-
-
-        # Sequence(
-        #     Parallel(
-        #         new_drop.scaleInterval(1, Vec3(1.5)),
-        #         new_drop.posInterval(1, pos + Vec3(0, -2, 0))
-        #     ),
-        #     Parallel(
-        #         ProjectileInterval(
-        #             new_drop,
-        #             duration=1,
-        #             startPos=pos + Vec3(0, -2, 0),
-        #             endPos=Point3(-11, 0, 10),
-        #             gravityMult=1
-        #         ),
-        #         new_drop.hprInterval(1, (360, 720, 360))
-
-        #     )
-        # ).start()
-
-
-        # new_drop.set_pos(pos + Vec3(0, -5, 0))
-        # new_drop.node().set_kinematic(True)
-
-
-
-        
-        # try:
-        #     np = self.vfx.drops_q.pop()
-
-        #     if next_stage := np.get_tag('merge'):
-        #         pos = np.get_pos()
-        #         next_drop = self.drops[next_stage]
-
-        #         if next_stage != 'd8':
-        #             self.copy_drop(next_drop.model, pos)
-        #             if next_drop.appendable and next_stage not in self.appendable_drops:
-        #                 self.appendable_drops.append(next_stage)
-        #         else:
-        #             base.taskMgr.do_method_later(
-        #                 0.15,
-        #                 self.create_last_drop,
-        #                 'create_last_drop',
-        #                 extraArgs=[next_drop.model, pos],
-        #                 appendTask = True
-        #             )
-
-        #         self.add()
-
-        #     self.world.remove(np.node())
-        #     np.remove_node()
-        # except IndexError:
-        #     pass
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    # def merge(self):
-    #     try:
-    #         np = self.vfx.drops_q.pop()
-
-    #         if np.has_tag('merge'):
-    #             pos = np.get_pos()
-    #             drop = self.drops[np.get_tag('stage')]
-    #             new_drop = drop.merge_into
-    #             self.create_new_drop(new_drop, pos)
-
-    #             key = new_drop.get_tag('stage')
-    #             if self.drops[key].appendable and key not in self.appendable_drops:
-    #                 self.appendable_drops.append(key)
-
-    #             self.add()
-
-    #         self.world.remove(np.node())
-    #         np.remove_node()
-    #     except IndexError:
-    #         pass
-
 
 
 # self.drops_tbl = {

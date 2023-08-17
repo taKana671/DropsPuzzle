@@ -76,6 +76,57 @@ class VFX(NodePath):
         return True
 
 
+class VFXRunner:
+
+    def start(self, delay=0.05):
+        base.taskMgr.do_method_later(delay, self.run, 'vfx')
+
+    def run(self, *args, **kwargs):
+        """Override in sub classes."""
+        raise NotImplementedError
+
+
+class DisappearEffect(VFXRunner):
+
+    def __init__(self, effects, drops_q):
+        self.effects = effects
+        self.drops_q = drops_q
+
+    # def start(self, delay=0.05):
+    #     base.taskMgr.do_method_later(delay, self.run, 'vfx_disappear')
+
+    def run(self, task):
+        for i, vfx in enumerate(self.effects):
+            if vfx.pos_u + vfx.tex.div_u == 1.0 \
+                    and vfx.pos_v == vfx.tex.tgt_remove_v:
+                self.drops_q.append(vfx.target)
+                vfx.target = None
+
+            if not vfx.texture_offset():
+                self.effects[i] = vfx.remove_node()
+
+        if not any(e for e in self.effects):
+            return task.done
+
+        return task.again
+
+
+class ShortEffect(VFXRunner):
+
+    def __init__(self, vfx):
+        self.vfx = vfx
+
+    # def start(self, delay=0.05):
+    #     base.taskMgr.do_method_later(delay, self.run, 'vfx_short')
+
+    def run(self, task):
+        if not self.vfx.texture_offset():
+            self.vfx.remove_node()
+            return task.done
+
+        return task.again
+
+
 class VFXManager(NodePath):
 
     def __init__(self):
@@ -83,37 +134,17 @@ class VFXManager(NodePath):
         self.reparent_to(base.render)
         self.drops_q = deque()
 
-    def make_effects(self, vfx_settings, *targets):
-        for target_nd in targets:
-            target_nd.set_tag('effecting', '')
-            target_np = NodePath(target_nd)
-            vfx = VFX(vfx_settings, target_np)
-            vfx.reparent_to(self)
+    def make_effect(self, vfx_settings, target_np):
+        target_np.set_tag('effecting', '')
+        vfx = VFX(vfx_settings, target_np)
+        vfx.reparent_to(self)
 
-            yield vfx
+        return vfx
 
-    def start_disappear(self, vfx_settings, *targets, delay=0.05):
-        effects = [e for e in self.make_effects(vfx_settings, *targets)]
+    def disappear(self, vfx_settings, *targets, delay=0.05):
+        effects = [self.make_effect(vfx_settings, NodePath(t)) for t in targets]
+        DisappearEffect(effects, self.drops_q).start()
 
-        base.taskMgr.do_method_later(
-            delay,
-            self.disappear,
-            'vfx_disappear',
-            extraArgs=[effects],
-            appendTask=True
-        )
-
-    def disappear(self, effects, task):
-        for i, vfx in enumerate(effects):
-            if vfx.pos_u + vfx.tex.div_u == 1.0 \
-                    and vfx.pos_v == vfx.tex.tgt_remove_v:
-                self.drops_q.append(vfx.target)
-                vfx.target = None
-
-            if not vfx.texture_offset():
-                effects[i] = vfx.remove_node()
-
-        if not any(e for e in effects):
-            return task.done
-
-        return task.again
+    def short(self, vfx_settings, target, delay=0.05):
+        vfx = self.make_effect(vfx_settings, target)
+        ShortEffect(vfx).start()
