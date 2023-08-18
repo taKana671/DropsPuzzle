@@ -51,8 +51,8 @@ class GameBoard(NodePath):
         self.world = world
         self.create_cabinet()
 
-        self.score_display = NumberDisplay('score_display', 0.01, text='0')
-        self.num_display = NumberDisplay('num_display', 2.35)
+        self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
+        self.num_display = NumberDisplay('num_display', (2.5, -0.2))
 
         self.top_l = Point3(-6.5, 0, 13)
         self.top_r = Point3(6.5, 0, 13)
@@ -102,13 +102,13 @@ class GameBoard(NodePath):
 
 class NumberDisplay(OnscreenText):
 
-    def __init__(self, name, pos_x, scale=0.1, fg=(1, 1, 1, 1), text=''):
+    def __init__(self, name, pos, scale=0.1, fg=(1, 1, 1, 1), text=''):
         font = base.loader.loadFont('font/SegUIVar.ttf')
         super().__init__(
             text=text,
             parent=base.a2dTopLeft,
             align=TextNode.ALeft,
-            pos=(pos_x, -scale),
+            pos=pos,
             scale=scale,
             font=font,
             fg=fg,

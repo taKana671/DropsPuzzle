@@ -28,6 +28,7 @@ class VFXSetting(NamedTuple):
     texture: TextureAtlas
     scale: float
     offset: Vec3 = Vec3(0, 0, 0)
+    hpr: Vec3 = Vec3(0, 0, 0)
 
 
 class VFX(NodePath):
@@ -46,6 +47,8 @@ class VFX(NodePath):
         self.set_depth_test(False)
         self.set_light_off()
         self.set_scale(settings.scale)
+        self.set_hpr(settings.hpr)
+
         self.flatten_light()
 
         self.target = target

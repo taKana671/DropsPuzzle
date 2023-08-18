@@ -91,8 +91,6 @@ class Drops(NodePath):
         self.vfx = VFXManager()
 
         self.appendable_drops = []
-        # self.smiley = base.loader.loadModel('smiley')    
-
 
         d1 = Convex('d1', Sphere(), Vec3(0.4))
         d2 = Convex('d2', Sphere(pattern=1), Vec3(0.5))
@@ -100,29 +98,26 @@ class Drops(NodePath):
         d4 = Convex('d4', Polyhedron('d4.obj'), Vec3(0.8))   # icosidodecahedron
         d5 = Convex('d5', Polyhedron('d5.obj'), Vec3(1.0))   # Parabiaugmented truncated dodecahedron
         d6 = Convex('d6', Polyhedron('d6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
-        # d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.4))   # Parabigyrate diminished rhombicosidodecahedron
-        d7 = Convex('d7', Polyhedron('s06.obj'), Vec3(1.5))
+        d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.5))  # Truncated icosahedron
         self.d8 = base.loader.loadModel('smiley')
 
         d1_tex = TextureAtlas('boom_fire.png', tgt_remove_row=2)
-        d2_tex = TextureAtlas('blast2.png', vfx_end_row=6, tgt_remove_row=2)
-        # d2_tex = TextureAtlas('blast2.png', vfx_end_row=7)
-        d3_tex = TextureAtlas('spark1.png', vfx_end_row=5, tgt_remove_row=2)
-        d4_tex = TextureAtlas('spark2.png', vfx_end_row=5, tgt_remove_row=3)
-        d5_tex = TextureAtlas('vortex.png', vfx_end_row=5, tgt_remove_row=3)
-        d6_tex = TextureAtlas('m_blast.png', tgt_remove_row=3)
-        d7_tex = TextureAtlas('rotating_fire.png', vfx_end_row=6, tgt_remove_row=3)
+        d2_tex = TextureAtlas('blast2.png', vfx_end_row=5, tgt_remove_row=2)
+        d3_tex = TextureAtlas('rotating_fire.png', vfx_end_row=6, tgt_remove_row=3)
+        d4_tex = TextureAtlas('m_blast.png', tgt_remove_row=3)
+        d5_tex = TextureAtlas('spark1.png', vfx_end_row=4, tgt_remove_row=2)
+        d6_tex = TextureAtlas('spark3.png', tgt_remove_row=4)
+        d7_tex = TextureAtlas('spark2.png', vfx_end_row=4, tgt_remove_row=3)
 
         self.drops = {
-            'd1': Drop(model=d1, merge_into='d2', vfx=VFXSetting(texture=d1_tex, scale=2.3), appendable=True),
-            'd2': Drop(model=d2, merge_into='d3', vfx=VFXSetting(texture=d2_tex, scale=2.2, offset=Vec3(0.3, 0, 0)), appendable=True),
-            'd3': Drop(model=d3, merge_into='d4', vfx=VFXSetting(texture=d3_tex, scale=3.1), appendable=True, score=100),
+            'd1': Drop(model=d1, merge_into='d2', vfx=VFXSetting(texture=d1_tex, scale=2), appendable=True),
+            'd2': Drop(model=d2, merge_into='d3', vfx=VFXSetting(texture=d2_tex, scale=2.2), appendable=True),
+            'd3': Drop(model=d3, merge_into='d4', vfx=VFXSetting(texture=d3_tex, scale=3.0), appendable=True, score=100),
             'd4': Drop(model=d4, merge_into='d5', vfx=VFXSetting(texture=d4_tex, scale=4.0), appendable=True, score=200),
-            'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=d5_tex, scale=4.5), appendable=False, score=400),
-            'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=d6_tex, scale=5.5), appendable=False, score=500),
-            'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=d7_tex, scale=6.5), appendable=False, score=600),
-            # 'd8': Drop(model=d8, merge_into=None, vfx=VFXSetting(texture=d2_tex, scale=5.5), appendable=False),
-            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d4_tex, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
+            'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=d5_tex, scale=3.5, offset=Vec3(0.5, 0, 0)), appendable=False, score=400),
+            'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=d6_tex, scale=6.0), appendable=False, score=500),
+            'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=d7_tex, scale=3.0), appendable=False, score=600),
+            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d7_tex, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
         }
 
         # self.set_transparency(TransparencyAttrib.MAlpha)
@@ -224,10 +219,10 @@ class Drops(NodePath):
     def add(self):
         match len(self.appendable_drops):
             case 0:
-                self.appendable_drops.append('d7')
-                total = random.randint(5, 5)
-                # self.appendable_drops.append('d1')
-                # total = random.randint(30, 40)
+                # self.appendable_drops.append('d5')
+                # total = random.randint(5, 5)
+                self.appendable_drops.append('d1')
+                total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -265,7 +260,7 @@ class Drops(NodePath):
     def start_jump(self, np, task):
         start = np.get_pos()
         dest_1 = Point3(0, -10, 0)
-        dest_2 = Point3(9.6, 0, 12)
+        dest_2 = Point3(9, 0, 13.5)
         drop = self.drops[np.get_tag('stage')]
         vfx = self.vfx.disappear
 
@@ -284,7 +279,7 @@ class Drops(NodePath):
                 np.hprInterval(2.0, (360, 720, 360))
             ),
             Func(vfx, drop.vfx, np),
-            Func(lambda: self.game_board.num_display.add(1))
+            Func(lambda: self.game_board.num_display.add(1)),
             # Func(self.add)
         ).start()
 
