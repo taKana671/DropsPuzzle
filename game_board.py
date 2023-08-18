@@ -1,11 +1,9 @@
-from itertools import product
-
+from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletRigidBodyNode
-from panda3d.bullet import BulletBoxShape
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh, BulletConvexHullShape
 from panda3d.core import NodePath, PandaNode, CardMaker
 from panda3d.core import Vec3, Vec4, Point3, BitMask32, LColor
-from panda3d.core import TransparencyAttrib
+from panda3d.core import TextNode
 from panda3d.core import TransformState
 
 from create_geomnode import Cube, RightTriangularPrism
@@ -46,46 +44,32 @@ class Assemblies(NodePath):
         return card
 
 
-# class Card(NodePath):
-
-#     def __init__(self, name, rect, hpr, pos, bit):
-#         super().__init__(BulletRigidBodyNode(name))
-#         self.set_pos(pos)
-#         self.set_hpr(hpr)
-#         self.card = rect.copy_to(self)
-
-#         geom = self.card.node().get_geom(0)
-#         mesh = BulletTriangleMesh()
-#         mesh.add_geom(geom)
-#         shape = BulletTriangleMeshShape(mesh, dynamic=False)
-#         self.node().add_shape(shape)
-#         self.set_collide_mask(BitMask32.bit(bit))
-
-
 class GameBoard(NodePath):
 
     def __init__(self, world):
         super().__init__(PandaNode('game_board'))
         self.world = world
-        self.create_game_board()
+        self.create_cabinet()
+
+        self.score_display = NumberDisplay('score_display', 0.01, text='0')
+        self.num_display = NumberDisplay('num_display', 2.35)
 
         self.top_l = Point3(-6.5, 0, 13)
         self.top_r = Point3(6.5, 0, 13)
-
         # self.inseide_dim = (13, 2, 14)
 
-    def create_game_board(self):
+    def create_cabinet(self):
         body_color = LColor(0, 0.5, 0, 1)
 
         # body
-        self.body = Assemblies('body', Point3(0, 0, 0), 1.0)
-        self.create_body(self.body, body_color)
+        self.cabinet= Assemblies('cabinet', Point3(0, 0, 0), 1.0)
+        self.create_body(self.cabinet, body_color)
 
         # partitions
-        self.create_partitions(self.body)
+        self.create_partitions(self.cabinet)
 
-        self.body.reparent_to(self)
-        self.world.attach(self.body.node())
+        self.cabinet.reparent_to(self)
+        self.world.attach(self.cabinet.node())
 
     def create_body(self, body, color):
         blocks = [
@@ -104,8 +88,6 @@ class GameBoard(NodePath):
         # x, y, z = 4.99, 4.99, 4.0
 
         panels = [
-            # [Vec3(0, 0, 0), Point3(0, -y, z)],
-            # [Vec3(180, 0, 0), Point3(0, y, z)],
             [Vec3(-90, 0, 0), Point3(-6.5, 0, 16)],
             [Vec3(90, 0, 0), Point3(6.5, 0, 16)]
         ]
@@ -116,3 +98,27 @@ class GameBoard(NodePath):
 
         for i, (hpr, pos) in enumerate(panels):
             _ = body.add_card(f'panel_{i}', rect, hpr, pos)
+
+
+class NumberDisplay(OnscreenText):
+
+    def __init__(self, name, pos_x, scale=0.1, fg=(1, 1, 1, 1), text=''):
+        font = base.loader.loadFont('font/SegUIVar.ttf')
+        super().__init__(
+            text=text,
+            parent=base.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(pos_x, -scale),
+            scale=scale,
+            font=font,
+            fg=fg,
+            mayChange=True
+        )
+        self.set_name(name)
+
+    def add(self, num):
+        if not (t := self.getText()):
+            t = '0'
+
+        added = int(t) + num
+        self.setText(str(added))

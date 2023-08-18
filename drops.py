@@ -72,6 +72,7 @@ class Drop(NamedTuple):
     vfx: VFXSetting
     appendable: bool
     last: bool = False
+    score: int = 0
 
 
 class Drops(NodePath):
@@ -115,13 +116,13 @@ class Drops(NodePath):
         self.drops = {
             'd1': Drop(model=d1, merge_into='d2', vfx=VFXSetting(texture=d1_tex, scale=2.3), appendable=True),
             'd2': Drop(model=d2, merge_into='d3', vfx=VFXSetting(texture=d2_tex, scale=2.2, offset=Vec3(0.3, 0, 0)), appendable=True),
-            'd3': Drop(model=d3, merge_into='d4', vfx=VFXSetting(texture=d3_tex, scale=3.1), appendable=True),
-            'd4': Drop(model=d4, merge_into='d5', vfx=VFXSetting(texture=d4_tex, scale=4.0), appendable=True),
-            'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=d5_tex, scale=4.5), appendable=False),
-            'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=d6_tex, scale=5.5), appendable=False),
-            'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=d7_tex, scale=6.5), appendable=False),
+            'd3': Drop(model=d3, merge_into='d4', vfx=VFXSetting(texture=d3_tex, scale=3.1), appendable=True, score=100),
+            'd4': Drop(model=d4, merge_into='d5', vfx=VFXSetting(texture=d4_tex, scale=4.0), appendable=True, score=200),
+            'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=d5_tex, scale=4.5), appendable=False, score=400),
+            'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=d6_tex, scale=5.5), appendable=False, score=500),
+            'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=d7_tex, scale=6.5), appendable=False, score=600),
             # 'd8': Drop(model=d8, merge_into=None, vfx=VFXSetting(texture=d2_tex, scale=5.5), appendable=False),
-            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d4_tex, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True),
+            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=d4_tex, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
         }
 
         # self.set_transparency(TransparencyAttrib.MAlpha)
@@ -129,15 +130,15 @@ class Drops(NodePath):
         # filters.setBloom(size="large", blend=(1, 0, 0, 1), desat=0.0)
         # filters.setBloom(size="large", blend=(1, 0, 0, 0))
 
-    def setup(self):
-        end, tip = self.game_board.pipe.get_tight_bounds()
-        pipe_size = tip - end
-        pipe_pos = self.game_board.pipe.get_pos()
+    # def setup(self):
+    #     end, tip = self.game_board.pipe.get_tight_bounds()
+    #     pipe_size = tip - end
+    #     pipe_pos = self.game_board.pipe.get_pos()
 
-        self.end_x = pipe_size.x / 2
-        self.end_y = pipe_size.y / 2
-        self.start_z = int(pipe_pos.z - pipe_size.z / 2)
-        self.end_z = int(pipe_pos.z + pipe_size.z / 2)
+    #     self.end_x = pipe_size.x / 2
+    #     self.end_y = pipe_size.y / 2
+    #     self.start_z = int(pipe_pos.z - pipe_size.z / 2)
+    #     self.end_z = int(pipe_pos.z + pipe_size.z / 2)
 
     def _check(self, drop, pos, rad):
         d_pos, d_rad = drop
@@ -191,7 +192,7 @@ class Drops(NodePath):
         neighbours.append(node)
 
         for con in self.world.contact_test(node, use_filter=True).get_contacts():
-            if (con_nd := con.get_node1()) != self.game_board.body.node():
+            if (con_nd := con.get_node1()) != self.game_board.cabinet.node():
                 if con_nd not in neighbours \
                         and not con_nd.has_tag('effecting') and con_nd.get_tag('stage') == tag:
                     self._find(con_nd, tag, neighbours)
@@ -223,10 +224,10 @@ class Drops(NodePath):
     def add(self):
         match len(self.appendable_drops):
             case 0:
-                # self.appendable_drops.append('d7')
-                # total = random.randint(5, 5)
-                self.appendable_drops.append('d1')
-                total = random.randint(30, 40)
+                self.appendable_drops.append('d7')
+                total = random.randint(5, 5)
+                # self.appendable_drops.append('d1')
+                # total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -239,10 +240,12 @@ class Drops(NodePath):
     def merge(self):
         try:
             np = self.vfx.drops_q.pop()
+            score = 0
 
             if next_stage := np.get_tag('merge'):
                 pos = np.get_pos()
                 next_drop = self.drops[next_stage]
+                score += next_drop.score
                 self.copy_drop(next_drop.model, pos)
 
                 if next_drop.appendable and next_stage not in self.appendable_drops:
@@ -253,13 +256,16 @@ class Drops(NodePath):
 
             self.world.remove(np.node())
             np.remove_node()
+
+            score += 1
+            self.game_board.score_display.add(score)
         except IndexError:
             pass
 
     def start_jump(self, np, task):
         start = np.get_pos()
         dest_1 = Point3(0, -10, 0)
-        dest_2 = Point3(9, 0, 12)
+        dest_2 = Point3(9.6, 0, 12)
         drop = self.drops[np.get_tag('stage')]
         vfx = self.vfx.disappear
 
@@ -278,6 +284,7 @@ class Drops(NodePath):
                 np.hprInterval(2.0, (360, 720, 360))
             ),
             Func(vfx, drop.vfx, np),
+            Func(lambda: self.game_board.num_display.add(1))
             # Func(self.add)
         ).start()
 
