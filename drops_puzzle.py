@@ -68,8 +68,8 @@ class Game(ShowBase):
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug.node())
-        self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
-        self.debug_line.reparent_to(self.debug)
+        # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
+        # self.debug_line.reparent_to(self.debug)
 
         self.clicked = False
         self.dragging = False
@@ -98,16 +98,28 @@ class Game(ShowBase):
         node = lines.create()
         return NodePath(node)
 
-    def is_full(self):
-        result = self.world.ray_test_closest(
-            self.game_board.top_l,
-            self.game_board.top_r,
-            BitMask32.bit(3)
-        )
+    # def is_full(self):
+    #     result = self.world.ray_test_all(
+    #         self.game_board.top_l,
+    #         self.game_board.top_r,
+    #         BitMask32.bit(3)
+    #     )
 
-        if result.has_hit():
-            # print(result.get_node().get_name())
-            return True
+    #     for hit in result.get_hits():
+    #         if not (nd := hit.get_node()).linear_velocity.length():
+    #             print(nd)
+         
+
+
+        # result = self.world.ray_test_closest(
+        #     self.game_board.top_l,
+        #     self.game_board.top_r,
+        #     BitMask32.bit(3)
+        # )
+
+        # if result.has_hits():
+        #     # print(result.get_node().get_name())
+        #     return True
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -154,6 +166,15 @@ class Game(ShowBase):
         #         self.drops.add(random.randint(10, 20))
         #         self.state = None
 
+        # print([d.node().get_linear_velocity() for d in self.drops.get_children()])
+        # self.drops.blink()
+        # if drops := self.game_board.detect():
+        #     print('!!!!blink!!!!', drops)
+        #     self.drops.blink(drops)
+        # if self.game_board.detect():
+        #     print('game_over')
+        
+        # self.drops.blink()
         self.drops.jump()
         self.drops.merge()
         self.drops.fall()

@@ -127,6 +127,6 @@ def delete_files(dir):
 
 
 if __name__ == '__main__':
-    # delete_files('work')
-    # crop_img('animations e15.png', 'work', 5, 4)
-    paste_img('paste8', 1024, 1024, 8, 8)
+    delete_files('work')
+    crop_img('pngegg.png', 'work', 8, 7)
+    paste_img('paste9', 1024, 1024, 8, 8)
