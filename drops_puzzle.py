@@ -13,6 +13,7 @@ from panda3d.core import Vec3, BitMask32, Point3, LColor, Point2
 from game_board import GameBoard, NumberDisplay
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
+from monitor import Monitor
 
 
 # load_prc_file_data("", """
@@ -47,7 +48,7 @@ class Game(ShowBase):
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
 
-        self.camera.set_pos(Point3(0, -35, 7))  # Point3(0, -39, 1)
+        self.camera.set_pos(Point3(0, -35, 8))  # Point3(0, -39, 1)
         # self.camera.set_pos(Point3(0, -70, 5))
         self.camera.set_hpr(Vec3(0, -1.6, 0))   # Vec3(0, -2.1, 0)
         self.camera.reparent_to(self.render)
@@ -63,8 +64,10 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.scene)
 
-        self.drops = Drops(self.world, self.game_board)
+        self.monitor = Monitor(self.game_board)
+        self.drops = Drops(self.world, self.game_board, self.monitor)
         self.drops.reparent_to(self.scene)
+
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug.node())
@@ -85,10 +88,15 @@ class Game(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
+        self.accept('gameover', self.gameover)
         # self.accept('mouse1-up', self.mouse_release)
 
         self.taskMgr.add(self.update, 'update')
 
+    
+    def gameover(self):
+        print('gameover!!!!!!!!!')
+    
     def make_debug_line(self, from_pt, to_pt, color):
         lines = LineSegs()
         lines.set_color(color)
@@ -174,6 +182,7 @@ class Game(ShowBase):
         # if self.game_board.detect():
         #     print('game_over')
         
+        self.monitor.monitoring()
         # self.drops.blink()
         self.drops.jump()
         self.drops.merge()

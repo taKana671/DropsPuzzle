@@ -1,4 +1,4 @@
-# from typing import NamedTuple
+from typing import NamedTuple
 
 from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletRigidBodyNode, BulletGhostNode
@@ -11,6 +11,25 @@ from panda3d.core import TransformState
 from create_geomnode import Cube, RightTriangularPrism
 
 
+class Dimensions(NamedTuple):
+
+    center: Vec3
+    width: float
+    height: float
+
+    @property
+    def left(self):
+        return -self.width / 2
+
+    @property
+    def right(self):
+        return self.width / 2
+
+    @property
+    def top(self):
+        return self.height / 2
+
+
 class Cabinet(NodePath):
 
     def __init__(self, pos, restitution=0.0):
@@ -18,18 +37,16 @@ class Cabinet(NodePath):
         self.set_collide_mask(BitMask32.bit(1))
         self.set_pos(pos)
         self.node().set_restitution(restitution)
+        self.dims = Dimensions(Vec3(0, 0, 0), 13, 24)
         self.assemble()
-
-        self.from_pos = Point3(-6.5, 0, 13.5)
-        self.to_pos = Point3(6.5, 0, 13.5)
 
     def assemble(self):
         color = LColor(0, 0.5, 0, 1)
 
         li = {
-            Cube(w=13, d=2, h=10): [((0, 0, -6), (0, 0, 0))],
-            Cube(w=0.5, d=2, h=24): [(Point3(6.75, 0, 1), Vec3(0, 0, 0)), (Point3(-6.75, 0, 1), Vec3(0, 0, 0))],
-            RightTriangularPrism(w=1.5, h=2): [(Point3(5.75, 0, -0.5), Vec3(180, 90, 0)), (Point3(-5.75, 0, -0.5), Vec3(0, 90, 0))]
+            Cube(w=13, d=2, h=10): [((0, 0, -5), (0, 0, 0))],
+            Cube(w=0.5, d=2, h=24): [(Point3(6.75, 0, 0), Vec3(0, 0, 0)), (Point3(-6.75, 0, 0), Vec3(0, 0, 0))],
+            RightTriangularPrism(w=1.5, h=2): [(Point3(5.75, 0, 0.5), Vec3(180, 90, 0)), (Point3(-5.75, 0, 0.5), Vec3(0, 90, 0))]
         }
 
         for i, (np, pos_hpr) in enumerate(li.items()):
@@ -38,8 +55,8 @@ class Cabinet(NodePath):
                 self.make_convex_shape(name, np, pos, hpr, color)
 
         li = [
-            [Point3(-6.5, 0, 16), Vec3(-90, 0, 0)],
-            [Point3(6.5, 0, 16), Vec3(90, 0, 0)]
+            [Point3(-6.5, 0, 15), Vec3(-90, 0, 0)],
+            [Point3(6.5, 0, 15), Vec3(90, 0, 0)]
         ]
 
         cm = CardMaker('card')
@@ -72,29 +89,6 @@ class Cabinet(NodePath):
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
         self.node().add_shape(shape, TransformState.make_pos_hpr(pos, hpr))
 
-    def is_outside(self, x, z):
-        if -6.5 < x < 6.5 and 13.0 < z < 16.0:
-            return True
-        
-        # if -6.5 < x < 6.5 and z < 13.5:
-        #     return True
-
-    # def show_gameover_line(self):
-
-
-class GameOverZone(NodePath):
-
-    def __init__(self, pos, size, bit):
-        super().__init__(BulletGhostNode('sensor'))
-        shape = BulletBoxShape(size)
-        self.node().add_shape(shape)
-        self.set_pos(pos)
-        self.set_collide_mask(BitMask32.bit(bit))
-
-    def detect(self):
-        for nd in self.node().get_overlapping_nodes():
-            yield nd
-
 
 class GameBoard(NodePath):
 
@@ -109,35 +103,11 @@ class GameBoard(NodePath):
         self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))
 
-        # self.gameover_zone = GameOverZone(Point3(0, 0, 15), Vec3(6.5, 0.5, 1), 3)
-        # self.gameover_zone.reparent_to(self)
-        # self.world.attach(self.gameover_zone.node())
-
-    # def display_score(self, num):
-    #     self.score_display.add(num)
-
-    # def display_count(self, num):
-    #     self.merge_display.add(num)
-
-    def is_outside_cabinet(self, np):
-        return self.cabinet.is_outside(np.get_x(), np.get_z())
-        # if self.cabinet.is_inside(np.get_x(), np.get_z()):
-        #     return False
-        # return True
-
-    def detect(self):
-        result = self.world.ray_test_closest(
-            self.cabinet.from_pos,
-            self.cabinet.to_pos,
-            BitMask32.bit(3)
-        )
-        if result.has_hit():
-            # print(result.get_node().set_angular_velocity((0, 0, 0)))
-            if result.get_node().linear_velocity.length() == 0:
-                return True
-
-    # def detect(self):
-    #     return [nd for nd in self.gameover_zone.detect() if nd.linear_velocity.length() == 0]
+    def is_in_gameover_zone(self, np):
+        pos = np.get_pos()
+        if self.cabinet.dims.left < pos.x < self.cabinet.dims.right \
+                and pos.z > self.cabinet.dims.top:
+            return True
 
 
 class NumberDisplay(OnscreenText):

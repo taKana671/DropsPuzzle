@@ -19,7 +19,7 @@ from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
 from monitor import Monitor
 
 
-START_MONITORING = 1
+START_MONITORING = 30
 
 
 class Smiley(NodePath):
@@ -84,7 +84,7 @@ class Drop(NamedTuple):
 class Drops(NodePath):
 # class Drops:
 
-    def __init__(self, world, game_board):
+    def __init__(self, world, game_board, monitor):
         super().__init__(PandaNode('drops'))
         self.world = world
         self.game_board = game_board
@@ -98,7 +98,7 @@ class Drops(NodePath):
         self.disappear_vfx = DisappearEffect(self.vfx_q)
         # self.vfx = VFXManager()
         # self.color_scale_effect = ColorScaleEffect(13)
-        self.monitor = Monitor(13)
+        self.monitor = monitor
         # self.blink_para = Parallel()
 
         d1 = Convex('d1', Sphere(), Vec3(0.4))
@@ -183,15 +183,14 @@ class Drops(NodePath):
         np.set_pos(pos)
         self.world.attach(np.node())
 
-        # print(self.count_num_descendants())
-        # if self.serial >= START_MONITORING:
-        #     base.taskMgr.do_method_later(
-        #         3,
-        #         self.monitor.start_monitoring,
-        #         'monitor',
-        #         extraArgs=[np],
-        #         appendTask=True
-        #     )
+        # if self.count_num_descendants() >= START_MONITORING:
+        base.taskMgr.do_method_later(
+            4,
+            self.monitor.start_monitoring,
+            'monitor',
+            extraArgs=[np],
+            appendTask=True
+        )
 
     def fall(self):
         if len(self.drops_q):
@@ -317,46 +316,3 @@ class Drops(NodePath):
             )
         except IndexError:
             pass
-
-    
-    
-    
-    
-    
-    
-    # def blink(self, targets):
-    #     if not self.blink_para.is_playing():
-    #         self.blink_para.clear_intervals()
-    #         for nd in targets:
-    #             np = NodePath(nd)
-    #             self.blink_para.append(
-    #                 Sequence(
-    #                     np.colorScaleInterval(0.5, (0.6, 0.6, 0.6, 1.0)),
-    #                     np.colorScaleInterval(0.5, (1.0, 1.0, 1.0, 1.0))
-    #                 )
-    #             )
-    #         self.blink_para.start()
-
-
-    def blink(self):
-        self.color_scale_effect.run()
-        # for np in self.get_children():
-        #     if self.game_board.is_outside_cabinet(np):
-        #         if self.world.contact_test(np.node(), use_filter=True).get_num_contacts():
-        #             print(np)
-
-
-        # li = [np for np in self.get_children()
-        #       if np.node().linear_velocity.length() != 0 and self.game_board.is_outside_cabinet(np)]
-        # if li:
-        #     if not self.blink_para.is_playing():
-        #         self.blink_para = None
-        #         self.blink_para = Parallel()
-        #         for np in li:
-        #             self.blink_para.append(
-        #                 Sequence(
-        #                     np.colorScaleInterval(0.5, (0.6, 0.6, 0.6, 1.0)),
-        #                     np.colorScaleInterval(0.5, (1.0, 1.0, 1.0, 1.0))
-        #                 )
-        #             )
-        #         self.blink_para.start()
