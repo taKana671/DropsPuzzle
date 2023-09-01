@@ -48,7 +48,7 @@ class Game(ShowBase):
         self.world = BulletWorld()
         self.world.set_gravity(Vec3(0, 0, -9.81))
 
-        self.camera.set_pos(Point3(0, -35, 8))  # Point3(0, -39, 1)
+        self.camera.set_pos(Point3(0, -35, 7))  # Point3(0, -39, 1)
         # self.camera.set_pos(Point3(0, -70, 5))
         self.camera.set_hpr(Vec3(0, -1.6, 0))   # Vec3(0, -2.1, 0)
         self.camera.reparent_to(self.render)

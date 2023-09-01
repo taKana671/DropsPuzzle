@@ -3,6 +3,8 @@ from collections import deque
 from direct.interval.IntervalGlobal import Sequence
 from direct.showbase.ShowBaseGlobal import globalClock
 
+from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
+
 
 class WarningSequence(Sequence):
 
@@ -18,6 +20,7 @@ class Monitor:
     def __init__(self, game_board):
         self.game_board = game_board
         self.monitor_q = deque()
+        self.tex = TextureAtlas('fire_ball.png')
 
     def monitoring(self):
         try:
@@ -25,8 +28,10 @@ class Monitor:
 
             if self.game_board.is_in_gameover_zone(np):
                 base.messenger.send('gameover')
-                WarningSequence(np).loop()
-                # return True
+
+                settings = VFXSetting(texture=self.tex, scale=4)
+                VFX(settings, np).repeat_start(3)
+
         except IndexError:
             pass
 

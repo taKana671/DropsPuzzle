@@ -57,7 +57,7 @@ class Effect(NodePath):
         self.offset = settings.offset
         self.tex = tex
 
-    def texture_offset(self):
+    def run(self):
         if self.target:
             self.set_pos(self.target.get_pos(base.render) + self.offset)
 
@@ -68,52 +68,71 @@ class Effect(NodePath):
             self.pos_u = 0
             self.pos_v -= self.tex.div_v
 
-        # comes to the end
+        # # comes to the end
         if self.pos_v <= self.tex.vfx_end_v:
-            return False
+            return True
 
         self.look_at(base.camera)
         self.set_tex_offset(TextureStage.get_default(), self.pos_u, self.pos_v)
 
-        return True
+    def loop(self):
+        if self.target:
+            self.set_pos(self.target.get_pos(base.render) + self.offset)
+
+        self.pos_u += self.tex.div_u
+
+        if self.pos_u >= 1.0:
+            self.pos_u = 0
+            self.pos_v -= self.tex.div_v
+
+        self.look_at(base.camera)
+        self.set_tex_offset(TextureStage.get_default(), self.pos_u, self.pos_v)
 
     def reset(self):
         self.pos_u = -self.tex.div_u
         self.pos_v = 0
 
-    def target_pos(self):
-        return self.target.get_pos(base.render)
-
 
 class VFX:
 
     def __init__(self, settings, target_np):
-        self.vfx = self.make_effect(settings, target_np)
+        self.vfx = Effect(settings, target_np)
+        self.vfx.reparent_to(base.render)
         self._finish = False
 
-    def make_effect(self, settings, target_np):
-        vfx = Effect(settings, target_np)
-        vfx.reparent_to(base.render)
-        return vfx
-
     def start(self, delay=0.05):
-        base.taskMgr.do_method_later(delay, self.run, 'vfx')
+        base.taskMgr.do_method_later(delay, self._run, 'vfx')
 
     def start_loop(self, delay=0.05):
-        base.taskMgr.do_method_later(delay, self.loop, 'loop')
+        base.taskMgr.do_method_later(delay, self._loop, 'loop')
 
-    def run(self, task):
-        if not self.vfx.texture_offset():
+    def repeat_start(self, max_repeat, delay=0.05):
+        self._repeat_cnt = 0
+        self._max_repeat = max_repeat
+        base.taskMgr.do_method_later(delay, self._repeat, 'repeat')
+
+    def _run(self, task):
+        if not self.vfx.run():
             self.vfx = self.vfx.remove_node()
             return task.done
 
         return task.again
 
-    def loop(self, task):
-        if not self.vfx.texture_offset():
-            self.vfx.reset()
+    def _loop(self, task):
+        self.vfx.loop()
 
         if self._finish:
+            self.vfx = self.vfx.remove_node()
+            return task.done
+
+        return task.again
+
+    def _repeat(self, task):
+        if self.vfx.run():
+            self._repeat_cnt += 1
+            self.vfx.reset()
+
+        if self._repeat_cnt == self._max_repeat:
             self.vfx = self.vfx.remove_node()
             return task.done
 
@@ -130,19 +149,20 @@ class DisappearEffect:
         self.root.reparent_to(base.render)
         self.drops_q = queue
 
-    def make_effect(self, settings, target_np):
-        target_np.set_tag('effecting', '')
-        vfx = Effect(settings, target_np)
-        vfx.reparent_to(self.root)
-        return vfx
+    def make_effect(self, settings, *targets):
+        for target in targets:
+            target_np = NodePath(target)
+            target_np.set_tag('effecting', '')
+            vfx = Effect(settings, target_np)
+            vfx.reparent_to(self.root)
+            yield vfx
 
     def start(self, vfx_settings, *targets, delay=0.05):
-        effects = [self.make_effect(vfx_settings, NodePath(t)) for t in targets]
+        effects = [vfx for vfx in self.make_effect(vfx_settings, *targets)]
         base.taskMgr.do_method_later(delay, self.run, 'vfx_disappear', extraArgs=[effects], appendTask=True)
 
     def run(self, effects, task):
-        if remaining := [vfx for vfx in effects if not self.disappear(vfx)]:
-            effects = remaining
+        if effects := [vfx for vfx in effects if not self.disappear(vfx)]:
             return task.again
 
         return task.done
@@ -153,36 +173,6 @@ class DisappearEffect:
             self.drops_q.append(vfx.target)
             vfx.target = None
 
-        if not vfx.texture_offset():
+        if vfx.run():
             vfx.remove_node()
             return True
-
-
-# class VFXManager(NodePath):
-
-#     def __init__(self):
-#         super().__init__('visual_effects')
-#         self.reparent_to(base.render)
-#         self.drops_q = deque()
-
-#     def make_effect(self, vfx_settings, target_np):
-#         target_np.set_tag('effecting', '')
-#         vfx = Effect(vfx_settings, target_np)
-#         vfx.reparent_to(self)
-
-#         return vfx
-
-#     def disappear(self, vfx_settings, *targets, delay=0.05):
-#         effects = [self.make_effect(vfx_settings, NodePath(t)) for t in targets]
-#         DisappearEffect(effects, self.drops_q).start()
-
-#     def oneshot(self, vfx_settings, target, delay=0.05):
-#         vfx = self.make_effect(vfx_settings, target)
-#         BasicVisualEffect(vfx).start()
-
-#     def repeat(self, vfx_settings, target, delay=0.05):
-#         vfx = self.make_effect(vfx_settings, target)
-#         BasicVisualEffect(vfx).repeat()
-
-#     def stop_repeat(self, vfx):
-#         pass
