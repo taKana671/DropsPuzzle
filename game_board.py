@@ -2,7 +2,8 @@ from typing import NamedTuple
 
 from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletRigidBodyNode, BulletGhostNode
-from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh, BulletConvexHullShape, BulletBoxShape
+from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape 
 from panda3d.core import NodePath, PandaNode, CardMaker
 from panda3d.core import Vec3, Point3, BitMask32, LColor
 from panda3d.core import TextNode
@@ -90,6 +91,15 @@ class Cabinet(NodePath):
         self.node().add_shape(shape, TransformState.make_pos_hpr(pos, hpr))
 
 
+# class Floor(NodePath):
+
+#     def __init__(self):
+#         super().__init__(BulletRigidBodyNode('floor'))
+#         self.set_collide_mask(BitMask32.bit(3))
+#         self.node().add_shape(BulletPlaneShape(Vec3.up(), -5))
+#         self.set_color(0, 0, 0, 1)
+
+
 class GameBoard(NodePath):
 
     def __init__(self, world):
@@ -99,6 +109,10 @@ class GameBoard(NodePath):
         self.cabinet = Cabinet(Point3(0, 0, 0), 1.0)
         self.cabinet.reparent_to(self)
         self.world.attach(self.cabinet.node())
+
+        # self.floor = Floor()
+        # self.floor.reparent_to(self)
+        # self.world.attach(self.floor.node())
 
         self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))
@@ -137,3 +151,10 @@ class NumberDisplay(OnscreenText):
         if not (score := self.getText()):
             score = 0
         return int(score)
+
+    def show(self, num, positive_only=False):
+        if positive_only:
+            if not num:
+                return
+
+        self.setText(str(num))

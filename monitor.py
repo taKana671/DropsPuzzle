@@ -1,9 +1,7 @@
 from collections import deque
 
-from direct.interval.IntervalGlobal import Sequence
+from direct.interval.IntervalGlobal import Sequence, Parallel
 from direct.showbase.ShowBaseGlobal import globalClock
-
-from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
 
 
 class WarningSequence(Sequence):
@@ -17,24 +15,34 @@ class WarningSequence(Sequence):
 
 class Monitor:
 
-    def __init__(self, game_board):
+    def __init__(self, game_board, drops):
         self.game_board = game_board
+        self.drops = drops
+
         self.monitor_q = deque()
-        self.tex = TextureAtlas('fire_ball.png')
+        self.is_gameover = False
 
-    def monitoring(self):
-        try:
-            np = self.monitor_q.popleft()
+    def update(self):
+        if np := self.drops.fall():
+            base.taskMgr.do_method_later(
+                5, self.check, 'monitor', extraArgs=[np], appendTask=True)
 
-            if self.game_board.is_in_gameover_zone(np):
-                base.messenger.send('gameover')
+        if score := self.drops.merge():
+            self.game_board.score_display.add(score)
 
-                settings = VFXSetting(texture=self.tex, scale=4)
-                VFX(settings, np).repeat_start(3)
+        self.drops.jump()
+        self.game_board.merge_display.show(self.drops.complete_score, True)
 
-        except IndexError:
-            pass
+        if self.is_gameover:
+            para = Parallel()
+            for np in self.drops.get_children():
+                if self.game_board.is_in_gameover_zone(np):
+                    para.append(WarningSequence(np))
+            para.loop()
+            return True
 
-    def start_monitoring(self, np, task):
-        self.monitor_q.append(np)
+    def check(self, np, task):
+        if self.game_board.is_in_gameover_zone(np):
+            self.is_gameover = True
+
         return task.done

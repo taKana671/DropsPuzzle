@@ -2,7 +2,7 @@ import random
 from collections import deque
 from typing import NamedTuple
 
-from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func
+from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func, Wait
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import NodePath, PandaNode
@@ -84,10 +84,9 @@ class Drop(NamedTuple):
 class Drops(NodePath):
 # class Drops:
 
-    def __init__(self, world, game_board, monitor):
+    def __init__(self, world):
         super().__init__(PandaNode('drops'))
         self.world = world
-        self.game_board = game_board
         # self.setup()
 
         self.smiley_q = deque()
@@ -98,7 +97,10 @@ class Drops(NodePath):
         self.disappear_vfx = DisappearEffect(self.vfx_q)
         # self.vfx = VFXManager()
         # self.color_scale_effect = ColorScaleEffect(13)
-        self.monitor = monitor
+        # self.monitor = monitor
+        # self.total_score = 0
+        self.complete_score = 0
+
         # self.blink_para = Parallel()
 
         d1 = Convex('d1', Sphere(), Vec3(0.4))
@@ -182,15 +184,7 @@ class Drops(NodePath):
         # np.set_name(f'drop_{self.serial}')
         np.set_pos(pos)
         self.world.attach(np.node())
-
-        # if self.count_num_descendants() >= START_MONITORING:
-        base.taskMgr.do_method_later(
-            4,
-            self.monitor.start_monitoring,
-            'monitor',
-            extraArgs=[np],
-            appendTask=True
-        )
+        return np
 
     def fall(self):
         if len(self.drops_q):
@@ -199,7 +193,18 @@ class Drops(NodePath):
 
             if pos := self.get_start_pos(drop.rad):
                 _ = self.drops_q.popleft()
-                self.copy_drop(drop, pos)
+                np = self.copy_drop(drop, pos)
+
+                return np
+
+                # if self.count_num_descendants() >= START_MONITORING:
+                # base.taskMgr.do_method_later(
+                #     6,
+                #     self.monitor.start_monitoring,
+                #     'monitor',
+                #     extraArgs=[np],
+                #     appendTask=True
+                # )
 
     def _find(self, node, tag, neighbours):
         neighbours.append(node)
@@ -238,10 +243,10 @@ class Drops(NodePath):
     def add(self):
         match len(self.appendable_drops):
             case 0:
-                # self.appendable_drops.append('d7')
-                # total = random.randint(20, 25)
-                self.appendable_drops.append('d1')
-                total = random.randint(30, 40)
+                self.appendable_drops.append('d7')
+                total = random.randint(5, 10)
+                # self.appendable_drops.append('d1')
+                # total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -252,10 +257,10 @@ class Drops(NodePath):
         self.drops_q.extend(li)
 
     def merge(self):
+        score = 0
+
         try:
-            # np = self.vfx.drops_q.pop()
             np = self.vfx_q.pop()
-            score = 0
 
             if next_stage := np.get_tag('merge'):
                 pos = np.get_pos()
@@ -271,11 +276,11 @@ class Drops(NodePath):
 
             self.world.remove(np.node())
             np.remove_node()
-
             score += 1
-            self.game_board.score_display.add(score)
         except IndexError:
             pass
+
+        return score
 
     class JumpSequence(Sequence):
 
@@ -286,7 +291,7 @@ class Drops(NodePath):
             drop = outer.drops[np.get_tag('stage')]
             func = Func(outer.disappear_vfx.start, drop.vfx, np)
 
-            if not outer.game_board.merge_display.score:
+            if not outer.complete_score:
                 func = Func(VFX(drop.vfx, np).start)
 
             super().__init__(
@@ -300,8 +305,11 @@ class Drops(NodePath):
                     np.hprInterval(2.0, (360, 720, 360))
                 ),
                 func,
-                Func(lambda: outer.game_board.merge_display.add(1))
+                Func(outer.update_complete_score)
             )
+
+    def update_complete_score(self):
+        self.complete_score += 1
 
     def start_jump(self, np, task):
         Drops.JumpSequence(np, self).start()
@@ -310,7 +318,6 @@ class Drops(NodePath):
     def jump(self, delay=0.15):
         try:
             np = self.smiley_q.popleft()
-
             base.taskMgr.do_method_later(
                 delay, self.start_jump, 'jump', extraArgs=[np], appendTask=True
             )

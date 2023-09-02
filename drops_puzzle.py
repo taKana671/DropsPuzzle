@@ -7,7 +7,7 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld, BulletDebugNode
 from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
-from panda3d.core import LineSegs
+from panda3d.core import LineSegs, Fog
 from panda3d.core import Vec3, BitMask32, Point3, LColor, Point2
 
 from game_board import GameBoard, NumberDisplay
@@ -49,7 +49,7 @@ class Game(ShowBase):
         self.world.set_gravity(Vec3(0, 0, -9.81))
 
         self.camera.set_pos(Point3(0, -35, 7))  # Point3(0, -39, 1)
-        # self.camera.set_pos(Point3(0, -70, 5))
+        # self.camera.set_pos(Point3(0, -70, 7))
         self.camera.set_hpr(Vec3(0, -1.6, 0))   # Vec3(0, -2.1, 0)
         self.camera.reparent_to(self.render)
 
@@ -64,10 +64,10 @@ class Game(ShowBase):
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.scene)
 
-        self.monitor = Monitor(self.game_board)
-        self.drops = Drops(self.world, self.game_board, self.monitor)
+        self.drops = Drops(self.world)
         self.drops.reparent_to(self.scene)
 
+        self.monitor = Monitor(self.game_board, self.drops)
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug.node())
@@ -75,11 +75,7 @@ class Game(ShowBase):
         # self.debug_line.reparent_to(self.debug)
 
         self.clicked = False
-        self.dragging = False
-        self.before_mouse_x = None
-        self.state = None
-
-        self.drops_cnt = 0
+        self.play = True
 
         # self.taskMgr.do_method_later(0.2, self.drops.add, 'add')
         self.drops.add()
@@ -93,10 +89,15 @@ class Game(ShowBase):
 
         self.taskMgr.add(self.update, 'update')
 
-    
     def gameover(self):
+        self.play = False
         print('gameover!!!!!!!!!')
-    
+
+        # for c in self.drops.get_children():
+        #     c.node().set_linear_factor(Vec3(1, 1, 1))
+
+        # self.game_board.cabinet.hprInterval(1.0, Vec3(0, 20, 0)).start()
+
     def make_debug_line(self, from_pt, to_pt, color):
         lines = LineSegs()
         lines.set_color(color)
@@ -105,29 +106,6 @@ class Game(ShowBase):
         lines.set_thickness(2.0)
         node = lines.create()
         return NodePath(node)
-
-    # def is_full(self):
-    #     result = self.world.ray_test_all(
-    #         self.game_board.top_l,
-    #         self.game_board.top_r,
-    #         BitMask32.bit(3)
-    #     )
-
-    #     for hit in result.get_hits():
-    #         if not (nd := hit.get_node()).linear_velocity.length():
-    #             print(nd)
-         
-
-
-        # result = self.world.ray_test_closest(
-        #     self.game_board.top_l,
-        #     self.game_board.top_r,
-        #     BitMask32.bit(3)
-        # )
-
-        # if result.has_hits():
-        #     # print(result.get_node().get_name())
-        #     return True
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -157,36 +135,15 @@ class Game(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
 
-        if self.mouseWatcherNode.has_mouse():
-            mouse_pos = self.mouseWatcherNode.get_mouse()
-            if self.clicked:
-                self.choose(mouse_pos)
-                self.clicked = False
-                # if self.choose(mouse_pos):
-                #     self.state = Status.MERGE
-                # self.clicked = False
+        if self.play:
+            if self.mouseWatcherNode.has_mouse():
+                mouse_pos = self.mouseWatcherNode.get_mouse()
+                if self.clicked:
+                    self.choose(mouse_pos)
+                    self.clicked = False
 
-        # if self.state == Status.MERGE:
-        #     if self.drops.merge():
-        #         if self.is_full():
-        #             print('game over')
-
-        #         self.drops.add(random.randint(10, 20))
-        #         self.state = None
-
-        # print([d.node().get_linear_velocity() for d in self.drops.get_children()])
-        # self.drops.blink()
-        # if drops := self.game_board.detect():
-        #     print('!!!!blink!!!!', drops)
-        #     self.drops.blink(drops)
-        # if self.game_board.detect():
-        #     print('game_over')
-        
-        self.monitor.monitoring()
-        # self.drops.blink()
-        self.drops.jump()
-        self.drops.merge()
-        self.drops.fall()
+        if self.monitor.update():
+            self.play = False
 
         self.world.do_physics(dt)
         return task.cont
