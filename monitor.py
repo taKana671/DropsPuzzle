@@ -18,8 +18,6 @@ class Monitor:
     def __init__(self, game_board, drops):
         self.game_board = game_board
         self.drops = drops
-
-        self.monitor_q = deque()
         self.is_gameover = False
 
     def update(self):

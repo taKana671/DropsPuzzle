@@ -14,6 +14,7 @@ from game_board import GameBoard, NumberDisplay
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
 from monitor import Monitor
+from screen import Screen
 
 
 # load_prc_file_data("", """
@@ -73,6 +74,13 @@ class Game(ShowBase):
         self.world.set_debug_node(self.debug.node())
         # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
         # self.debug_line.reparent_to(self.debug)
+
+
+        self.screen = Screen(self.game_board.score_display)
+        # self.screen.reparent_to(self.render)
+        # self.screen.set_pos(0, 0, 2)
+        # self.screen.set_scale(2)
+
 
         self.clicked = False
         self.play = True
