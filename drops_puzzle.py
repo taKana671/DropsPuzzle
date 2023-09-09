@@ -4,6 +4,7 @@ from enum import Enum, auto
 
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.ShowBase import ShowBase
+from direct.interval.IntervalGlobal import Sequence, Func, Wait
 from panda3d.bullet import BulletWorld, BulletDebugNode
 from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
@@ -14,7 +15,7 @@ from game_board import GameBoard, NumberDisplay
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
 from monitor import Monitor
-from screen import Screen
+from screen import Screen, Button, Frame
 
 
 # load_prc_file_data("", """
@@ -75,18 +76,13 @@ class Game(ShowBase):
         # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
         # self.debug_line.reparent_to(self.debug)
 
+        self.create_gui()
 
-        self.screen = Screen(self.game_board.score_display)
-        # self.screen.reparent_to(self.render)
-        # self.screen.set_pos(0, 0, 2)
-        # self.screen.set_scale(2)
+        self.initialize()
+        # self.clicked = False
+        # self.play = True
 
-
-        self.clicked = False
-        self.play = True
-
-        # self.taskMgr.do_method_later(0.2, self.drops.add, 'add')
-        self.drops.add()
+        # self.drops.add()
 
 
         self.accept('escape', sys.exit)
@@ -96,6 +92,32 @@ class Game(ShowBase):
         # self.accept('mouse1-up', self.mouse_release)
 
         self.taskMgr.add(self.update, 'update')
+
+    def create_gui(self):
+        font = base.loader.loadFont('font/Candaral.ttf')
+        self.frame = Frame(self.aspect2d)
+        Button(self.frame, 'START', (0, 0, 0), font, self.start_game, focus=True)
+        Button(self.frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
+        Button(self.frame, 'ENTER', (0, 0, -0.4), font, '')
+
+        self.screen = Screen(self.frame)
+        # self.screen.show()
+        
+
+    def initialize(self):
+        self.clicked = False
+        self.play = True
+        self.drops.initialize()
+
+    def start_game(self):
+        Sequence(
+            Wait(0.5),
+            Func(self.initialize),
+            Func(self.frame.hide),
+            self.screen.background.colorInterval(1.0, LColor(0, 0, 0, 0)),
+            Func(self.drops.add)
+        ).start()
+
 
     def gameover(self):
         self.play = False
@@ -116,12 +138,13 @@ class Game(ShowBase):
         return NodePath(node)
 
     def toggle_debug(self):
-        if self.debug.is_hidden():
-            self.debug.show()
-            self.day_light.node().show_frustum()
-        else:
-            self.debug.hide()
-            self.day_light.node().hide_frustum()
+        self.screen.hide()
+        # if self.debug.is_hidden():
+        #     self.debug.show()
+        #     self.day_light.node().show_frustum()
+        # else:
+        #     self.debug.hide()
+        #     self.day_light.node().hide_frustum()
 
     def mouse_click(self):
         self.clicked = True

@@ -155,6 +155,7 @@ class NumberDisplay(OnscreenText):
     def show(self, num, positive_only=False):
         if positive_only:
             if not num:
+                self.setText('')
                 return
 
         self.setText(str(num))

@@ -82,26 +82,21 @@ class Drop(NamedTuple):
 
 
 class Drops(NodePath):
-# class Drops:
 
     def __init__(self, world):
         super().__init__(PandaNode('drops'))
         self.world = world
         # self.setup()
 
+        self.root = NodePath('drops_root')
+
         self.smiley_q = deque()
         self.drops_q = deque()
-        self.appendable_drops = []
-        self.serial = 0
+        # self.drops_add = []
+        # self.serial = 0
         self.vfx_q = deque()
         self.disappear_vfx = DisappearEffect(self.vfx_q)
-        # self.vfx = VFXManager()
-        # self.color_scale_effect = ColorScaleEffect(13)
-        # self.monitor = monitor
-        # self.total_score = 0
-        self.complete_score = 0
-
-        # self.blink_para = Parallel()
+        # self.complete_score = 0
 
         d1 = Convex('d1', Sphere(), Vec3(0.4))
         d2 = Convex('d2', Sphere(pattern=1), Vec3(0.5))
@@ -146,6 +141,18 @@ class Drops(NodePath):
     #     self.end_y = pipe_size.y / 2
     #     self.start_z = int(pipe_pos.z - pipe_size.z / 2)
     #     self.end_z = int(pipe_pos.z + pipe_size.z / 2)
+
+    def delete(self, np):
+        self.world.remove(np.node())
+        np.remove_node()
+
+    def initialize(self):
+        self.serial = 0
+        self.complete_score = 0
+        self.drops_add = []
+
+        for np in self.get_children():
+            self.delete(np)
 
     def _check(self, drop, pos, rad):
         d_pos, d_rad = drop
@@ -230,23 +237,23 @@ class Drops(NodePath):
             return True
 
     def set_drop_numbers(self, total):
-        for key in self.appendable_drops[:-1]:
+        for key in self.drops_add[:-1]:
             start = 7 if key == 'd1' else 0
             prop = random.randint(start, 10) / 10
             cnt = int(prop * total)
             total -= cnt
             yield key, cnt
 
-        last_key = self.appendable_drops[-1]
+        last_key = self.drops_add[-1]
         yield last_key, total
 
     def add(self):
-        match len(self.appendable_drops):
+        match len(self.drops_add):
             case 0:
-                self.appendable_drops.append('d7')
-                total = random.randint(5, 10)
-                # self.appendable_drops.append('d1')
-                # total = random.randint(30, 40)
+                # self.drops_add.append('d7')
+                # total = random.randint(5, 10)
+                self.drops_add.append('d1')
+                total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -268,14 +275,16 @@ class Drops(NodePath):
                 score += next_drop.score
                 self.copy_drop(next_drop.model, pos)
 
-                if next_drop.appendable and next_stage not in self.appendable_drops:
-                    self.appendable_drops.append(next_stage)
+                if next_drop.appendable and next_stage not in self.drops_add:
+                    self.drops_add.append(next_stage)
 
                 if not next_drop.last:
                     self.add()
 
-            self.world.remove(np.node())
-            np.remove_node()
+            self.delete(np)
+
+            # self.world.remove(np.node())
+            # np.remove_node()
             score += 1
         except IndexError:
             pass
