@@ -29,7 +29,7 @@ class Monitor:
             self.game_board.score_display.add(score)
 
         self.drops.jump()
-        self.game_board.merge_display.show(self.drops.complete_score, True)
+        self.game_board.merge_display.show_score(self.drops.complete_score, True)
 
         if self.is_gameover:
             para = Parallel()

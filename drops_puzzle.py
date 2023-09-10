@@ -1,21 +1,19 @@
 import sys
-import random
 from enum import Enum, auto
 
 from direct.showbase.ShowBaseGlobal import globalClock
 from direct.showbase.ShowBase import ShowBase
-from direct.interval.IntervalGlobal import Sequence, Func, Wait
 from panda3d.bullet import BulletWorld, BulletDebugNode
-from panda3d.core import load_prc_file_data
+# from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
-from panda3d.core import LineSegs, Fog
-from panda3d.core import Vec3, BitMask32, Point3, LColor, Point2
+from panda3d.core import LineSegs
+from panda3d.core import Vec3, BitMask32, Point3  #, LColor
 
-from game_board import GameBoard, NumberDisplay
+from game_board import GameBoard
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
 from monitor import Monitor
-from screen import Screen, Button, Frame
+from screen import Screen, Button, Frame, Label
 
 
 # load_prc_file_data("", """
@@ -35,9 +33,8 @@ from screen import Screen, Button, Frame
 
 class Status(Enum):
 
-    DISAPPEAR = auto()
-    MERGE = auto()
-    FALL = auto()
+    PLAY = auto()
+    PAUSE = auto()
 
 
 class Game(ShowBase):
@@ -65,6 +62,7 @@ class Game(ShowBase):
 
         self.game_board = GameBoard(self.world)
         self.game_board.reparent_to(self.scene)
+        self.game_board.hide_displays()
 
         self.drops = Drops(self.world)
         self.drops.reparent_to(self.scene)
@@ -76,14 +74,15 @@ class Game(ShowBase):
         # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
         # self.debug_line.reparent_to(self.debug)
 
+        self.screen = Screen()
         self.create_gui()
+        self.screen.gui = self.start_frame
+        # self.screen = Screen(self.start_frame)
+        self.state = Status.PAUSE
 
-        self.initialize()
+        # self.initialize()
         # self.clicked = False
-        # self.play = True
-
         # self.drops.add()
-
 
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
@@ -95,32 +94,46 @@ class Game(ShowBase):
 
     def create_gui(self):
         font = base.loader.loadFont('font/Candaral.ttf')
-        self.frame = Frame(self.aspect2d)
-        Button(self.frame, 'START', (0, 0, 0), font, self.start_game, focus=True)
-        Button(self.frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
-        Button(self.frame, 'ENTER', (0, 0, -0.4), font, '')
 
-        self.screen = Screen(self.frame)
-        # self.screen.show()
-        
+        self.start_frame = Frame(self.aspect2d)
+        Label(self.start_frame, 'START', (0, 0, 0.3), font)
+        Button(self.start_frame, 'PLAY', (0, 0, 0), font, self.start_game, focus=True)
+        Button(self.start_frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
+        # self.screen = Screen(self.start_frame)
 
-    def initialize(self):
-        self.clicked = False
-        self.play = True
-        self.drops.initialize()
+        self.pause_frame = Frame(self.aspect2d, hide=True)
+        Label(self.pause_frame, 'PAUSE', (0, 0, 0.3), font)
+        Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.restart_game, focus=True)
+        Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.start_game)
+        Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
+        self.pause_frame.hide()
 
     def start_game(self):
-        Sequence(
-            Wait(0.5),
-            Func(self.initialize),
-            Func(self.frame.hide),
-            self.screen.background.colorInterval(1.0, LColor(0, 0, 0, 0)),
-            Func(self.drops.add)
-        ).start()
+        self.clicked = False
+        self.state = Status.PLAY
+        self.drops.initialize()
+        self.game_board.initialize()
+        self.game_board.show_displays()
+        self.accept('escape', self.pause)
+        self.screen.fade_out()
+        self.drops.add()
 
+    def pause(self):
+        self.state = Status.PAUSE
+        self.accept('escape', sys.exit)
+        self.screen.gui = self.pause_frame
+        self.game_board.hide_displays()
+        self.screen.fade_in()
+
+    def restart_game(self):
+        self.clicked = False
+        self.state = Status.PLAY
+        self.accept('escape', self.pause)
+        self.game_board.show_displays()
+        self.screen.fade_out()
 
     def gameover(self):
-        self.play = False
+        # self.play = False
         print('gameover!!!!!!!!!')
 
         # for c in self.drops.get_children():
@@ -138,13 +151,12 @@ class Game(ShowBase):
         return NodePath(node)
 
     def toggle_debug(self):
-        self.screen.hide()
-        # if self.debug.is_hidden():
-        #     self.debug.show()
-        #     self.day_light.node().show_frustum()
-        # else:
-        #     self.debug.hide()
-        #     self.day_light.node().hide_frustum()
+        if self.debug.is_hidden():
+            self.debug.show()
+            self.day_light.node().show_frustum()
+        else:
+            self.debug.hide()
+            self.day_light.node().hide_frustum()
 
     def mouse_click(self):
         self.clicked = True
@@ -166,15 +178,15 @@ class Game(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
 
-        if self.play:
+        if self.state == Status.PLAY:
             if self.mouseWatcherNode.has_mouse():
                 mouse_pos = self.mouseWatcherNode.get_mouse()
                 if self.clicked:
                     self.choose(mouse_pos)
                     self.clicked = False
 
-        if self.monitor.update():
-            self.play = False
+            if self.monitor.update():
+                self.state = Status.PAUSE
 
         self.world.do_physics(dt)
         return task.cont

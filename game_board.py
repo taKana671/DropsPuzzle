@@ -123,6 +123,19 @@ class GameBoard(NodePath):
                 and pos.z > self.cabinet.dims.top:
             return True
 
+    def initialize(self):
+        self.score_display.setText('0')
+        self.merge_display.setText('')
+
+    def show_displays(self):
+        self.score_display.show()
+        self.merge_display.show()
+
+    def hide_displays(self):
+        self.score_display.hide()
+        self.merge_display.hide()
+
+
 
 class NumberDisplay(OnscreenText):
 
@@ -152,7 +165,7 @@ class NumberDisplay(OnscreenText):
             score = 0
         return int(score)
 
-    def show(self, num, positive_only=False):
+    def show_score(self, num, positive_only=False):
         if positive_only:
             if not num:
                 self.setText('')

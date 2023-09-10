@@ -10,14 +10,29 @@ from direct.interval.IntervalGlobal import Sequence, Func, Wait
 
 class Frame(DirectFrame):
 
-    def __init__(self, parent):
+    def __init__(self, parent, hide=False):
         super().__init__(parent=parent)
         self.initialiseoptions(type(self))
-
         self.group = []
 
-    def show(self):
-        self.show()
+        if hide:
+            self.hide()
+
+
+class Label(DirectLabel):
+
+    def __init__(self, parent, text, pos, font, text_scale=0.2):
+        super().__init__(
+            parent=parent,
+            text=text,
+            pos=pos,
+            text_fg=(1, 1, 1, 1),
+            text_font=font,
+            text_scale=text_scale,
+            frameColor=(1, 1, 1, 0)
+        )
+
+        self.initialiseoptions(type(self))
 
 
 class Button(DirectButton):
@@ -30,7 +45,7 @@ class Button(DirectButton):
             text=text,
             pos=pos,
             text_fg=(1, 1, 1, 1),
-            text_scale=0.15,
+            text_scale=0.12,
             text_font=font,
             text_pos=(0, -0.04),
             command=command
@@ -81,26 +96,39 @@ class Button(DirectButton):
 
 class Screen:
 
-    def __init__(self, gui):
+    def __init__(self, gui=None):
         cm = CardMaker("card")
         cm.set_frame_fullscreen_quad()
         self.background = base.render2d.attach_new_node(cm.generate())
         self.background.set_transparency(1)
-        self.background.set_color(LColor(0, 0, 0, 0.8))
+        self.background.set_color(LColor(0, 0, 0, 1.0))
 
         self.gui = gui
 
-    def hide(self):
-        return Sequence(
+    
+    def switch(self, gui):
+        self.gui = gui
+
+    def fade_out(self):
+        Sequence(
             Func(self.gui.hide),
             self.background.colorInterval(0.5, LColor(0, 0, 0, 0)),
-        )
+            # Func(base.messenger.send, 'gamestart')
+        ).start()
+
+    def fade_in(self):
+        Sequence(
+            self.background.colorInterval(0.5, LColor(0, 0, 0, 1.0)),
+            Func(self.gui.show)
+        ).start()
+
+    def hide(self):
+        self.gui.hide()
+        self.background.hide()
 
     def show(self):
-        Sequence(
-            self.background.colorInterval(0.5, LColor(0, 0, 0, 0.8)),
-            Func(lambda: self.gui.show())
-        ).start()
+        self.gui.show()
+        self.background.show()
 
 
 
