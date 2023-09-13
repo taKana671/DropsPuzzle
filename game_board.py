@@ -3,7 +3,7 @@ from typing import NamedTuple
 from direct.gui.DirectGui import OnscreenText
 from panda3d.bullet import BulletRigidBodyNode, BulletGhostNode
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape 
+from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape
 from panda3d.core import NodePath, PandaNode, CardMaker
 from panda3d.core import Vec3, Point3, BitMask32, LColor
 from panda3d.core import TextNode
@@ -28,7 +28,7 @@ class Dimensions(NamedTuple):
 
     @property
     def top(self):
-        return self.height / 2
+        return self.height / 2 + 1
 
 
 class Cabinet(NodePath):
@@ -90,14 +90,27 @@ class Cabinet(NodePath):
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
         self.node().add_shape(shape, TransformState.make_pos_hpr(pos, hpr))
 
+    def is_inside(self, pos):
+        if self.dims.left < pos.x < self.dims.right \
+                and pos.z <= self.dims.top:
+            return True
 
-# class Floor(NodePath):
 
-#     def __init__(self):
-#         super().__init__(BulletRigidBodyNode('floor'))
-#         self.set_collide_mask(BitMask32.bit(3))
-#         self.node().add_shape(BulletPlaneShape(Vec3.up(), -5))
-#         self.set_color(0, 0, 0, 1)
+class Sensor(NodePath):
+
+    def __init__(self):
+        super().__init__(BulletRigidBodyNode('sensor'))
+        cm = CardMaker('card')
+        cm.set_frame(-5, 5, -1, 1)
+        geomnode = cm.generate()
+        geom = geomnode.get_geom(0)
+        mesh = BulletTriangleMesh()
+        mesh.add_geom(geom)
+        shape = BulletTriangleMeshShape(mesh, dynamic=False)
+        # self.card = self.attach_new_node(geomnode)
+        self.node().add_shape(shape)
+        self.set_p(-90)
+        self.set_collide_mask(BitMask32.bit(3))
 
 
 class GameBoard(NodePath):
@@ -117,6 +130,14 @@ class GameBoard(NodePath):
         self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))
 
+        self.sensor = Sensor()
+        self.sensor.reparent_to(self)
+        self.world.attach(self.sensor.node())
+
+    def is_overflow(self, np):
+        if np.get_z() > self.cabinet.dims.top:
+            return True
+
     def is_in_gameover_zone(self, np):
         pos = np.get_pos()
         if self.cabinet.dims.left < pos.x < self.cabinet.dims.right \
@@ -135,6 +156,10 @@ class GameBoard(NodePath):
         self.score_display.hide()
         self.merge_display.hide()
 
+    def sense_contact(self):
+        for con in self.world.contact_test(self.sensor.node(), use_filter=True).get_contacts():
+            nd = con.get_node0()
+            yield nd
 
 
 class NumberDisplay(OnscreenText):

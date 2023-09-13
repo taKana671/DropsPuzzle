@@ -112,13 +112,13 @@ class Screen:
     def fade_out(self):
         Sequence(
             Func(self.gui.hide),
-            self.background.colorInterval(0.5, LColor(0, 0, 0, 0)),
-            # Func(base.messenger.send, 'gamestart')
+            self.background.colorInterval(1.0, LColor(0, 0, 0, 0)),
+            Func(base.messenger.send, 'startgame')
         ).start()
 
     def fade_in(self):
         Sequence(
-            self.background.colorInterval(0.5, LColor(0, 0, 0, 1.0)),
+            self.background.colorInterval(1.0, LColor(0, 0, 0, 1.0)),
             Func(self.gui.show)
         ).start()
 

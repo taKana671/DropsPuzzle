@@ -62,8 +62,8 @@ class Convex(NodePath):
         shape.add_geom(geomnode.node().get_geom(0))
         self.node().add_shape(shape)
         # 1: other drops and game board, 2: click raycast, 3: gameover raycast
-        # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2))
+        self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
+        # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2))
         self.node().set_mass(0.5)
         # self.node().deactivation_enabled = False
         self.node().set_restitution(0.3)  # 0.7
@@ -143,16 +143,20 @@ class Drops(NodePath):
     #     self.end_z = int(pipe_pos.z + pipe_size.z / 2)
 
     def delete(self, np):
+        # import pdb; pdb.set_trace()
         self.world.remove(np.node())
         np.remove_node()
+
+    def cleanup(self):
+        for np in self.get_children():
+            self.delete(np)
+        self.drops_q.clear()
+        # import pdb; pdb.set_trace()
 
     def initialize(self):
         self.serial = 0
         self.complete_score = 0
         self.drops_add = []
-
-        for np in self.get_children():
-            self.delete(np)
 
     def _check(self, drop, pos, rad):
         d_pos, d_rad = drop
@@ -213,19 +217,27 @@ class Drops(NodePath):
                 #     appendTask=True
                 # )
 
-    def _find(self, node, tag, neighbours):
+    def find_all_neighbours(self, nd, neighbours_set):
+        for con in self.world.contact_test(nd, use_filter=True).get_contacts():
+            con_nd = con.get_node1()
+            if con_nd not in neighbours_set and con_nd.get_tag('stage'):
+                # print(con_nd.get_name(), con_nd.get_tag('stage'))
+                neighbours_set.add(con_nd)
+                self.find_all_neighbours(con_nd, neighbours_set)
+
+    def _neighbours(self, node, tag, neighbours):
         neighbours.append(node)
 
         for con in self.world.contact_test(node, use_filter=True).get_contacts():
             con_nd = con.get_node1()
             if con_nd not in neighbours and con_nd.get_tag('stage') == tag \
                     and not con_nd.has_tag('effecting'):
-                self._find(con_nd, tag, neighbours)
+                self._neighbours(con_nd, tag, neighbours)
 
     def find_neighbours(self, clicked_nd):
         self.neighbours = []
         now_stage = clicked_nd.get_tag('stage')
-        self._find(clicked_nd, now_stage, self.neighbours)
+        self._neighbours(clicked_nd, now_stage, self.neighbours)
 
         if len(self.neighbours) >= 2:
             drop = self.drops[now_stage]
@@ -251,7 +263,7 @@ class Drops(NodePath):
         match len(self.drops_add):
             case 0:
                 # self.drops_add.append('d7')
-                # total = random.randint(5, 10)
+                # total = random.randint(20, 25)
                 self.drops_add.append('d1')
                 total = random.randint(30, 40)
             case 2:

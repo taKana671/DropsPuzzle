@@ -35,6 +35,7 @@ class Status(Enum):
 
     PLAY = auto()
     PAUSE = auto()
+    GAMEOVER = auto()
 
 
 class Game(ShowBase):
@@ -74,10 +75,11 @@ class Game(ShowBase):
         # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
         # self.debug_line.reparent_to(self.debug)
 
-        self.screen = Screen()
+        # self.screen = Screen()
         self.create_gui()
-        self.screen.gui = self.start_frame
-        # self.screen = Screen(self.start_frame)
+        # self.screen.gui = self.start_frame
+        self.screen = Screen(self.start_frame)
+        self.screen.show()
         self.state = Status.PAUSE
 
         # self.initialize()
@@ -87,8 +89,8 @@ class Game(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
+        self.accept('startgame', self.start_game)
         self.accept('gameover', self.gameover)
-        # self.accept('mouse1-up', self.mouse_release)
 
         self.taskMgr.add(self.update, 'update')
 
@@ -97,26 +99,36 @@ class Game(ShowBase):
 
         self.start_frame = Frame(self.aspect2d)
         Label(self.start_frame, 'START', (0, 0, 0.3), font)
-        Button(self.start_frame, 'PLAY', (0, 0, 0), font, self.start_game, focus=True)
+        Button(self.start_frame, 'PLAY', (0, 0, 0), font, self.initialize, focus=True)
         Button(self.start_frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
         # self.screen = Screen(self.start_frame)
 
         self.pause_frame = Frame(self.aspect2d, hide=True)
         Label(self.pause_frame, 'PAUSE', (0, 0, 0.3), font)
         Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.restart_game, focus=True)
-        Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.start_game)
+        Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.initialize)
         Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
         self.pause_frame.hide()
 
     def start_game(self):
+        self.drops.add()
+    
+    
+    def initialize(self):
         self.clicked = False
         self.state = Status.PLAY
         self.drops.initialize()
+        self.monitor.initialize()
         self.game_board.initialize()
         self.game_board.show_displays()
         self.accept('escape', self.pause)
         self.screen.fade_out()
-        self.drops.add()
+        # print('before add children')
+        # print(self.drops.get_children())
+        # self.drops.add()  # <- screenが完全にfade outしたあとにする。
+                          # fade outのsequenceが終わらないうちにdropの落下が始まりおかしくなる？
+        # print('after add children')
+        # print(self.drops.get_children())
 
     def pause(self):
         self.state = Status.PAUSE
@@ -133,13 +145,16 @@ class Game(ShowBase):
         self.screen.fade_out()
 
     def gameover(self):
-        # self.play = False
-        print('gameover!!!!!!!!!')
+        print('gameover!!!!')
+        # print('begore cleanup')
+        # print(self.drops.get_children())
+        self.drops.cleanup()
 
-        # for c in self.drops.get_children():
-        #     c.node().set_linear_factor(Vec3(1, 1, 1))
+        # # print('after cleanup')
+        # # print(self.drops.get_children())
 
-        # self.game_board.cabinet.hprInterval(1.0, Vec3(0, 20, 0)).start()
+        self.screen.gui = self.start_frame
+        self.screen.fade_in()
 
     def make_debug_line(self, from_pt, to_pt, color):
         lines = LineSegs()
@@ -172,7 +187,7 @@ class Game(ShowBase):
         if result.has_hit():
             hit_node = result.get_node()
             if not hit_node.has_tag('effecting'):
-                print('hit_node', hit_node)
+                # print('hit_node', hit_node)
                 return self.drops.find_neighbours(hit_node)
 
     def update(self, task):
@@ -185,7 +200,8 @@ class Game(ShowBase):
                     self.choose(mouse_pos)
                     self.clicked = False
 
-            if self.monitor.update():
+            if not self.monitor.update():
+                print('now pause starts')
                 self.state = Status.PAUSE
 
         self.world.do_physics(dt)
