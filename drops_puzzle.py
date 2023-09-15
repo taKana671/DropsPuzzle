@@ -6,14 +6,15 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld, BulletDebugNode
 # from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
-from panda3d.core import LineSegs
-from panda3d.core import Vec3, BitMask32, Point3  #, LColor
+# from panda3d.core import LineSegs
+from panda3d.core import Vec3, BitMask32, Point3, LColor
 
 from game_board import GameBoard
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
 from monitor import Monitor
 from screen import Screen, Button, Frame, Label
+from utils import make_line
 
 
 # load_prc_file_data("", """
@@ -72,13 +73,11 @@ class Game(ShowBase):
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug.node())
-        # self.debug_line = self.make_debug_line(self.game_board.top_l, self.game_board.top_r, LColor(1, 0, 0, 1))
-        # self.debug_line.reparent_to(self.debug)
+        self.debug_line = make_line(
+            self.game_board.cabinet.dims.top_left, self.game_board.cabinet.dims.top_right, LColor(1, 0, 0, 1))
+        self.debug_line.reparent_to(self.debug)
 
-        # self.screen = Screen()
-        self.create_gui()
-        # self.screen.gui = self.start_frame
-        self.screen = Screen(self.start_frame)
+        self.screen = self.create_gui()
         self.screen.show()
         self.state = Status.PAUSE
 
@@ -99,21 +98,24 @@ class Game(ShowBase):
 
         self.start_frame = Frame(self.aspect2d)
         Label(self.start_frame, 'START', (0, 0, 0.3), font)
-        Button(self.start_frame, 'PLAY', (0, 0, 0), font, self.initialize, focus=True)
-        Button(self.start_frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
-        # self.screen = Screen(self.start_frame)
+        start_btn = Button(self.start_frame, 'PLAY', (0, 0, 0), font, self.initialize, focus=True)
+        quit_btn1 = Button(self.start_frame, 'QUIT', (0, 0, -0.2), font, lambda: sys.exit())
+        self.start_frame.create_group(start_btn, quit_btn1)
+        screen = Screen(self.start_frame)
 
         self.pause_frame = Frame(self.aspect2d, hide=True)
         Label(self.pause_frame, 'PAUSE', (0, 0, 0.3), font)
-        Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.restart_game, focus=True)
-        Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.initialize)
-        Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
+        continue_btn = Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.restart_game, focus=True)
+        reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.initialize)
+        quit_btn2 = Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
+        self.pause_frame.create_group(continue_btn, reset_btn, quit_btn2)
         self.pause_frame.hide()
+
+        return screen
 
     def start_game(self):
         self.drops.add()
-    
-    
+
     def initialize(self):
         self.clicked = False
         self.state = Status.PLAY
@@ -146,6 +148,7 @@ class Game(ShowBase):
 
     def gameover(self):
         print('gameover!!!!')
+        # self.state = Status.GAMEOVER
         # print('begore cleanup')
         # print(self.drops.get_children())
         self.drops.cleanup()
@@ -155,15 +158,6 @@ class Game(ShowBase):
 
         self.screen.gui = self.start_frame
         self.screen.fade_in()
-
-    def make_debug_line(self, from_pt, to_pt, color):
-        lines = LineSegs()
-        lines.set_color(color)
-        lines.move_to(from_pt)
-        lines.draw_to(to_pt)
-        lines.set_thickness(2.0)
-        node = lines.create()
-        return NodePath(node)
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -200,9 +194,10 @@ class Game(ShowBase):
                     self.choose(mouse_pos)
                     self.clicked = False
 
-            if not self.monitor.update():
-                print('now pause starts')
-                self.state = Status.PAUSE
+            self.monitor.update()
+            # if not self.monitor.update():
+            #     print('now pause starts')
+            #     self.state = Status.PAUSE
 
         self.world.do_physics(dt)
         return task.cont

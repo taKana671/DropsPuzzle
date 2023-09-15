@@ -195,7 +195,6 @@ class Drops(NodePath):
         # np.set_name(f'drop_{self.serial}')
         np.set_pos(pos)
         self.world.attach(np.node())
-        return np
 
     def fall(self):
         if len(self.drops_q):
@@ -204,26 +203,19 @@ class Drops(NodePath):
 
             if pos := self.get_start_pos(drop.rad):
                 _ = self.drops_q.popleft()
-                np = self.copy_drop(drop, pos)
+                self.copy_drop(drop, pos)
 
-                return np
-
-                # if self.count_num_descendants() >= START_MONITORING:
-                # base.taskMgr.do_method_later(
-                #     6,
-                #     self.monitor.start_monitoring,
-                #     'monitor',
-                #     extraArgs=[np],
-                #     appendTask=True
-                # )
-
-    def find_all_neighbours(self, nd, neighbours_set):
+    def find_all_neighbours(self, nd, neighbours):
+        """Search all of the balls contacting with each other recursivelly.
+            Args:
+                nd: BulletRigidBodyNode
+                neighbours: set
+        """
         for con in self.world.contact_test(nd, use_filter=True).get_contacts():
             con_nd = con.get_node1()
-            if con_nd not in neighbours_set and con_nd.get_tag('stage'):
-                # print(con_nd.get_name(), con_nd.get_tag('stage'))
-                neighbours_set.add(con_nd)
-                self.find_all_neighbours(con_nd, neighbours_set)
+            if con_nd not in neighbours and con_nd.get_tag('stage'):
+                neighbours.add(con_nd)
+                self.find_all_neighbours(con_nd, neighbours)
 
     def _neighbours(self, node, tag, neighbours):
         neighbours.append(node)
@@ -294,9 +286,6 @@ class Drops(NodePath):
                     self.add()
 
             self.delete(np)
-
-            # self.world.remove(np.node())
-            # np.remove_node()
             score += 1
         except IndexError:
             pass

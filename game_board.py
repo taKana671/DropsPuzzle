@@ -28,7 +28,15 @@ class Dimensions(NamedTuple):
 
     @property
     def top(self):
-        return self.height / 2 + 1
+        return self.height / 2
+
+    @property
+    def top_left(self):
+        return Point3(self.left, 0, self.top)
+
+    @property
+    def top_right(self):
+        return Point3(self.right, 0, self.top)
 
 
 class Cabinet(NodePath):

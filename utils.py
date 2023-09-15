@@ -1,3 +1,5 @@
+from panda3d.core import LineSegs
+from panda3d.core import NodePath
 
 
 def load_obj(file_path):
@@ -17,3 +19,14 @@ def load_obj(file_path):
                     faces.append(tuple(int(val) - 1 for val in li[1:]))
 
     return vertices, faces
+
+
+def make_line(from_pt, to_pt, color):
+    lines = LineSegs()
+    lines.set_color(color)
+    lines.move_to(from_pt)
+    lines.draw_to(to_pt)
+    lines.set_thickness(2.0)
+    node = lines.create()
+
+    return NodePath(node)
