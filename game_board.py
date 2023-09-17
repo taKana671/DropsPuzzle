@@ -115,7 +115,6 @@ class Sensor(NodePath):
         mesh = BulletTriangleMesh()
         mesh.add_geom(geom)
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
-        # self.card = self.attach_new_node(geomnode)
         self.node().add_shape(shape)
         self.set_p(-90)
         self.set_collide_mask(BitMask32.bit(3))
@@ -130,10 +129,6 @@ class GameBoard(NodePath):
         self.cabinet = Cabinet(Point3(0, 0, 0), 1.0)
         self.cabinet.reparent_to(self)
         self.world.attach(self.cabinet.node())
-
-        # self.floor = Floor()
-        # self.floor.reparent_to(self)
-        # self.world.attach(self.floor.node())
 
         self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))

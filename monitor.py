@@ -20,7 +20,7 @@ class BlinkingSequence(Sequence):
         )
 
 
-class FinishSequence(Sequence):
+class WarningSequence(Sequence):
 
     def __init__(self, np_list):
         super().__init__()
@@ -68,18 +68,23 @@ class Monitor:
             self.drops.jump()
             self.game_board.merge_display.show_score(self.drops.complete_score, True)
 
-    def finish_monitoring(self):
+    def restart_check(self):
+        if not self.drops.disappear_vfx.is_playing():
+            self.state = Status.MONITORNING
+            return True
+
+    def warn_gameover(self):
         seq = Sequence()
         overflows = [
             np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)
         ]
-        seq = FinishSequence(overflows)
+        seq = WarningSequence(overflows)
         seq.start()
 
     def judge(self, overflows, task):
         for np in overflows:
             if self.game_board.is_overflow(np):
-                self.finish_monitoring()
+                self.warn_gameover()
                 self.state = Status.FINISH
                 break
 

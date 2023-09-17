@@ -6,7 +6,6 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.bullet import BulletWorld, BulletDebugNode
 # from panda3d.core import load_prc_file_data
 from panda3d.core import NodePath
-# from panda3d.core import LineSegs
 from panda3d.core import Vec3, BitMask32, Point3, LColor
 
 from game_board import GameBoard
@@ -37,6 +36,7 @@ class Status(Enum):
     PLAY = auto()
     PAUSE = auto()
     GAMEOVER = auto()
+    RESTART = auto()
 
 
 class Game(ShowBase):
@@ -79,22 +79,16 @@ class Game(ShowBase):
 
         self.screen = self.create_gui()
         self.screen.show()
-        self.state = Status.PAUSE
-
-        # self.initialize()
-        # self.clicked = False
-        # self.drops.add()
+        self.state = None
 
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
-        self.accept('startgame', self.start_game)
         self.accept('gameover', self.gameover)
-
         self.taskMgr.add(self.update, 'update')
 
     def create_gui(self):
-        font = base.loader.loadFont('font/Candaral.ttf')
+        font = self.loader.loadFont('font/Candaral.ttf')
 
         self.start_frame = Frame(self.aspect2d)
         Label(self.start_frame, 'START', (0, 0, 0.3), font)
@@ -105,59 +99,55 @@ class Game(ShowBase):
 
         self.pause_frame = Frame(self.aspect2d, hide=True)
         Label(self.pause_frame, 'PAUSE', (0, 0, 0.3), font)
-        continue_btn = Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.restart_game, focus=True)
-        reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.initialize)
+        continue_btn = Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.continue_game, focus=True)
+        reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.restart_game)
         quit_btn2 = Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
         self.pause_frame.create_group(continue_btn, reset_btn, quit_btn2)
         self.pause_frame.hide()
 
         return screen
 
-    def start_game(self):
-        self.drops.add()
+    def start_game(self, is_add=False):
+        print('start_game!!!!')
+        self.accept('escape', self.pause)
+        self.clicked = False
+        self.game_board.show_displays()
+        self.state = Status.PLAY
+        if is_add:
+            self.drops.add()
 
     def initialize(self):
-        self.clicked = False
-        self.state = Status.PLAY
+        print('initialize')
+        self.ignore('escape')
+        self.drops.cleanup()
         self.drops.initialize()
         self.monitor.initialize()
         self.game_board.initialize()
-        self.game_board.show_displays()
-        self.accept('escape', self.pause)
-        self.screen.fade_out()
-        # print('before add children')
-        # print(self.drops.get_children())
-        # self.drops.add()  # <- screenが完全にfade outしたあとにする。
-                          # fade outのsequenceが終わらないうちにdropの落下が始まりおかしくなる？
-        # print('after add children')
-        # print(self.drops.get_children())
+        self.screen.fade_out(self.start_game, True)
 
     def pause(self):
+        print('pause!!!!')
+        self.ignore('escape')
         self.state = Status.PAUSE
-        self.accept('escape', sys.exit)
-        self.screen.gui = self.pause_frame
         self.game_board.hide_displays()
-        self.screen.fade_in()
+        self.screen.gui = self.pause_frame
+        self.screen.fade_in(self.accept, 'escape', sys.exit)
 
-    def restart_game(self):
-        self.clicked = False
-        self.state = Status.PLAY
-        self.accept('escape', self.pause)
-        self.game_board.show_displays()
-        self.screen.fade_out()
+    def continue_game(self):
+        print('continue!!!!')
+        self.ignore('escape')
+        self.screen.fade_out(self.start_game)
 
     def gameover(self):
         print('gameover!!!!')
-        # self.state = Status.GAMEOVER
-        # print('begore cleanup')
-        # print(self.drops.get_children())
-        self.drops.cleanup()
-
-        # # print('after cleanup')
-        # # print(self.drops.get_children())
-
+        self.ignore('escape')
+        self.state = Status.GAMEOVER
+        self.game_board.hide_displays()
         self.screen.gui = self.start_frame
-        self.screen.fade_in()
+        self.screen.fade_in(self.accept, 'escape', sys.exit)
+
+    def restart_game(self):
+        self.state = Status.RESTART
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -181,7 +171,6 @@ class Game(ShowBase):
         if result.has_hit():
             hit_node = result.get_node()
             if not hit_node.has_tag('effecting'):
-                # print('hit_node', hit_node)
                 return self.drops.find_neighbours(hit_node)
 
     def update(self, task):
@@ -195,9 +184,11 @@ class Game(ShowBase):
                     self.clicked = False
 
             self.monitor.update()
-            # if not self.monitor.update():
-            #     print('now pause starts')
-            #     self.state = Status.PAUSE
+
+        if self.state == Status.RESTART:
+            if self.monitor.restart_check():
+                self.state = Status.PAUSE
+                self.initialize()
 
         self.world.do_physics(dt)
         return task.cont

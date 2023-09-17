@@ -2,21 +2,15 @@ import random
 from collections import deque
 from typing import NamedTuple
 
-from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func, Wait
+from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import TransparencyAttrib
-# from direct.filter.FilterManager import FilterManager
-# from panda3d.core import TransparencyAttrib
-# from direct.filter.CommonFilters import CommonFilters
-
 
 from create_geomnode import Sphere, Polyhedron
-# from visual_effects import VFXManager, TextureAtlas, VFXSetting
 from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
-from monitor import Monitor
 
 
 START_MONITORING = 30
@@ -92,8 +86,6 @@ class Drops(NodePath):
 
         self.smiley_q = deque()
         self.drops_q = deque()
-        # self.drops_add = []
-        # self.serial = 0
         self.vfx_q = deque()
         self.disappear_vfx = DisappearEffect(self.vfx_q)
         # self.complete_score = 0
@@ -127,11 +119,6 @@ class Drops(NodePath):
             'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=tex_5, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
         }
 
-        # self.set_transparency(TransparencyAttrib.MAlpha)
-        # filters = CommonFilters(base.win, base.cam)
-        # filters.setBloom(size="large", blend=(1, 0, 0, 1), desat=0.0)
-        # filters.setBloom(size="large", blend=(1, 0, 0, 0))
-
     # def setup(self):
     #     end, tip = self.game_board.pipe.get_tight_bounds()
     #     pipe_size = tip - end
@@ -143,15 +130,16 @@ class Drops(NodePath):
     #     self.end_z = int(pipe_pos.z + pipe_size.z / 2)
 
     def delete(self, np):
-        # import pdb; pdb.set_trace()
         self.world.remove(np.node())
         np.remove_node()
 
     def cleanup(self):
         for np in self.get_children():
             self.delete(np)
+
+        self.smiley_q.clear()
         self.drops_q.clear()
-        # import pdb; pdb.set_trace()
+        self.vfx_q.clear()
 
     def initialize(self):
         self.serial = 0

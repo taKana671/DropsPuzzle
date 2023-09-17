@@ -1,9 +1,9 @@
-from direct.gui.DirectFrame import DirectFrame
 import direct.gui.DirectGuiGlobals as DGG
+from direct.gui.DirectFrame import DirectFrame
 from direct.gui.DirectLabel import DirectLabel
 from direct.gui.DirectButton import DirectButton
 from panda3d.core import CardMaker, LColor
-from direct.interval.IntervalGlobal import Sequence, Func, Wait
+from direct.interval.IntervalGlobal import Sequence, Func
 
 
 class Frame(DirectFrame):
@@ -69,7 +69,7 @@ class Button(DirectButton):
 
     def roll_over(self, param=None):
         self.is_focus = True
-        self.colorScaleInterval(0.2, self.focus_color, blendType='easeInOut').start()
+        self.colorScaleInterval(0.05, self.focus_color, blendType='easeInOut').start()
 
         for btn in self.btn_group:
             if btn != self and btn.is_focus:
@@ -81,40 +81,44 @@ class Button(DirectButton):
             return
 
         self.is_focus = False
-        self.colorScaleInterval(0.2, self.blur_color, blendType='easeInOut').start()
+        self.colorScaleInterval(0.05, self.blur_color, blendType='easeInOut').start()
 
     def focus(self):
+        self.is_focus = True
         self.set_color_scale(self.focus_color)
 
     def blur(self):
+        self.is_focus = False
         self.set_color_scale(self.blur_color)
 
 
 class Screen:
 
     def __init__(self, gui=None):
+        self.gui = gui
+        self.color_in = LColor(0, 0, 0, 1.0)
+        self.color_out = LColor(0, 0, 0, 0)
+        self.setup_background()
+
+    def setup_background(self):
         cm = CardMaker("card")
         cm.set_frame_fullscreen_quad()
         self.background = base.render2d.attach_new_node(cm.generate())
         self.background.set_transparency(1)
-        self.background.set_color(LColor(0, 0, 0, 1.0))
+        self.background.set_color(self.color_in)
 
-        self.gui = gui
-
-    def switch(self, gui):
-        self.gui = gui
-
-    def fade_out(self):
+    def fade_out(self, callback, *args, **kwargs):
         Sequence(
             Func(self.gui.hide),
-            self.background.colorInterval(1.0, LColor(0, 0, 0, 0)),
-            Func(base.messenger.send, 'startgame')
+            self.background.colorInterval(1.0, self.color_out),
+            Func(callback, *args, **kwargs)
         ).start()
 
-    def fade_in(self):
+    def fade_in(self, callback, *args, **kwargs):
         Sequence(
-            self.background.colorInterval(1.0, LColor(0, 0, 0, 1.0)),
-            Func(self.gui.show)
+            self.background.colorInterval(1.0, self.color_in),
+            Func(self.gui.show),
+            Func(callback, *args, **kwargs)
         ).start()
 
     def hide(self):

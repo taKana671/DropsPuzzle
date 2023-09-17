@@ -176,3 +176,7 @@ class DisappearEffect:
         if vfx.run():
             vfx.remove_node()
             return True
+
+    def is_playing(self):
+        if base.taskMgr.getTasksNamed('vfx_disappear'):
+            return True
