@@ -22,16 +22,15 @@ class BlinkingSequence(Sequence):
 
 class WarningSequence(Sequence):
 
-    def __init__(self, np_list):
+    def __init__(self, np_list, callback, *args, **kwargs):
         super().__init__()
-        self.make_finish_seq(np_list)
+        self.append_blinks(np_list)
+        self.append(Func(callback, *args, **kwargs))
 
-    def make_finish_seq(self, np_list):
+    def append_blinks(self, np_list):
         for _ in range(3):
             para = Parallel(*[BlinkingSequence(np) for np in np_list])
             self.append(para)
-
-        self.append(Func(base.messenger.send, 'gameover'))
 
 
 class Monitor:
@@ -50,17 +49,17 @@ class Monitor:
             if self.before is not None and globalClock.get_frame_time() - self.before >= self.timer:
                 if overflow := [np for np in self.find_overflow()]:
                     base.taskMgr.do_method_later(
-                        3,
-                        self.judge,
-                        'judge',
-                        extraArgs=[overflow],
-                        appendTask=True
-                    )
+                        3, self.judge, 'judge', extraArgs=[overflow], appendTask=True)
                     self.before = None
                 else:
                     self.before = globalClock.get_frame_time()
 
             self.drops.fall()
+
+            # ghost = self.game_board.ghost_np.node()
+            # print('ghost', [nd for nd in ghost.get_overlapping_nodes()])
+            # print('-------------')
+
 
             if score := self.drops.merge():
                 self.game_board.score_display.add(score)
@@ -68,25 +67,31 @@ class Monitor:
             self.drops.jump()
             self.game_board.merge_display.show_score(self.drops.complete_score, True)
 
+        if self.state == Status.FINISH:
+            return False
+
+        return True
+
     def restart_check(self):
         if not self.drops.disappear_vfx.is_playing():
             self.state = Status.MONITORNING
             return True
 
-    def warn_gameover(self):
+    def warn_gameover(self, callback, *args, **kwargs):
         seq = Sequence()
         overflows = [
             np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)
         ]
-        seq = WarningSequence(overflows)
+        seq = WarningSequence(overflows, callback, *args, **kwargs)
         seq.start()
 
     def judge(self, overflows, task):
-        for np in overflows:
-            if self.game_board.is_overflow(np):
-                self.warn_gameover()
-                self.state = Status.FINISH
-                break
+        if not self.drops.disappear_vfx.is_playing():
+            for np in overflows:
+                if self.game_board.is_overflow(np):
+                    # self.warn_gameover()
+                    self.state = Status.FINISH
+                    break
 
         if self.state == Status.MONITORNING:
             self.before = globalClock.get_frame_time()

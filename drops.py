@@ -2,7 +2,7 @@ import random
 from collections import deque
 from typing import NamedTuple
 
-from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func
+from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func, Wait
 from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import NodePath, PandaNode
@@ -13,54 +13,45 @@ from create_geomnode import Sphere, Polyhedron
 from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
 
 
-START_MONITORING = 30
+class Models(NodePath):
 
-
-class Smiley(NodePath):
-
-    def __init__(self, tag, model, scale=1.5):
-
+    def __init__(self, tag, model, scale):
         super().__init__(BulletRigidBodyNode(f'drop_{tag}'))
-        # super().__init__(PandaNode('smiley'))
+        model.reparent_to(self)
         self.set_scale(scale)
         self.node().set_tag('stage', tag)
-
-        self.model = model.copy_to(self)
-        end, tip = self.model.get_tight_bounds()
         self.node().set_linear_factor(Vec3(1, 0, 1))
+        self.node().set_restitution(0.3)
 
+    def make_movable(self, nd):
+        nd.set_linear_factor(Vec3(1, 1, 1))
+        nd.set_kinematic(True)
+
+
+class Smiley(Models):
+
+    def __init__(self, tag, model, scale=1.5):
+        super().__init__(tag, model, scale)
+
+        end, tip = model.get_tight_bounds()
         size = tip - end
         shape = BulletSphereShape(size.z / 2)
         self.node().add_shape(shape)
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2))
         self.node().set_mass(1)
-        # # self.node().deactivation_enabled = True
-        self.node().set_restitution(0.3)
-
-    def make_movable(self):
-        self.node().set_linear_factor(Vec3(1, 1, 1))
-        self.node().set_kinematic(True)
 
 
-class Convex(NodePath):
+class Convex(Models):
 
-    def __init__(self, tag, geomnode, scale):
-        super().__init__(BulletRigidBodyNode(f'drop_{tag}'))
-        self.set_scale(scale)
-        self.node().set_tag('stage', tag)
-        geomnode.reparent_to(self)
-        # make drop move only x axis
-        self.node().set_linear_factor(Vec3(1, 0, 1))
+    def __init__(self, tag, model, scale):
+        super().__init__(tag, model, scale)
 
         shape = BulletConvexHullShape()
-        shape.add_geom(geomnode.node().get_geom(0))
+        shape.add_geom(model.node().get_geom(0))
         self.node().add_shape(shape)
-        # 1: other drops and game board, 2: click raycast, 3: gameover raycast
+        # 1: other drops and game board, 2: click raycast, 3: gameover judge
         self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2) | BitMask32.bit(3))
-        # self.set_collide_mask(BitMask32.bit(1) | BitMask32.bit(2))
         self.node().set_mass(0.5)
-        # self.node().deactivation_enabled = False
-        self.node().set_restitution(0.3)  # 0.7
         self.set_transparency(TransparencyAttrib.MAlpha)
         self.rad = self.get_bounds().get_radius()
 
@@ -80,15 +71,11 @@ class Drops(NodePath):
     def __init__(self, world):
         super().__init__(PandaNode('drops'))
         self.world = world
-        # self.setup()
-
-        self.root = NodePath('drops_root')
 
         self.smiley_q = deque()
         self.drops_q = deque()
         self.vfx_q = deque()
         self.disappear_vfx = DisappearEffect(self.vfx_q)
-        # self.complete_score = 0
 
         d1 = Convex('d1', Sphere(), Vec3(0.4))
         d2 = Convex('d2', Sphere(pattern=1), Vec3(0.5))
@@ -96,8 +83,8 @@ class Drops(NodePath):
         d4 = Convex('d4', Polyhedron('d4.obj'), Vec3(0.8))   # icosidodecahedron
         d5 = Convex('d5', Polyhedron('d5.obj'), Vec3(1.0))   # Parabiaugmented truncated dodecahedron
         d6 = Convex('d6', Polyhedron('d6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
-        d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.5))  # Truncated icosahedron
-        self.d8 = base.loader.loadModel('smiley')
+        d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.5))   # Truncated icosahedron
+        self.smiley = Smiley('d8', base.loader.loadModel('smiley'))
 
         tex_1 = TextureAtlas('boom_fire.png', tgt_remove_row=2)
         tex_2 = TextureAtlas('blast2.png', vfx_end_row=5, tgt_remove_row=2)
@@ -106,7 +93,6 @@ class Drops(NodePath):
         tex_5 = TextureAtlas('spark2.png', vfx_end_row=5, tgt_remove_row=3)
         tex_6 = TextureAtlas('spark3.png', tgt_remove_row=4)
         tex_7 = TextureAtlas('spark1.png', vfx_end_row=4, tgt_remove_row=2)
-        # tex_7 = TextureAtlas('tele2.png')
 
         self.drops = {
             'd1': Drop(model=d1, merge_into='d2', vfx=VFXSetting(texture=tex_1, scale=2), appendable=True),
@@ -116,18 +102,8 @@ class Drops(NodePath):
             'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=tex_5, scale=2.0), appendable=False, score=400),
             'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=tex_6, scale=6.0), appendable=False, score=500),
             'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=tex_7, scale=6.5, offset=Vec3(1.0, 0, 0)), appendable=False, score=600), # 6.5
-            'd8': Drop(model=self.d8, merge_into=None, vfx=VFXSetting(texture=tex_5, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
+            'd8': Drop(model=self.smiley, merge_into=None, vfx=VFXSetting(texture=tex_5, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
         }
-
-    # def setup(self):
-    #     end, tip = self.game_board.pipe.get_tight_bounds()
-    #     pipe_size = tip - end
-    #     pipe_pos = self.game_board.pipe.get_pos()
-
-    #     self.end_x = pipe_size.x / 2
-    #     self.end_y = pipe_size.y / 2
-    #     self.start_z = int(pipe_pos.z - pipe_size.z / 2)
-    #     self.end_z = int(pipe_pos.z + pipe_size.z / 2)
 
     def delete(self, np):
         self.world.remove(np.node())
@@ -156,6 +132,7 @@ class Drops(NodePath):
 
     def get_start_pos(self, rad):
         floating_np = [(np.get_pos(), np.get_bounds().get_radius()) for np in self.get_children() if np.get_z() >= 16]
+        # print('child', floating_np)
 
         for _ in range(3):
             y = 0
@@ -169,18 +146,13 @@ class Drops(NodePath):
         return None
 
     def copy_drop(self, drop, pos):
-        if drop == self.d8:
-            np = Smiley('d8', drop)
-            np.set_name(f'smiley_{self.serial}')
-            self.smiley_q.append(np)
-            np.reparent_to(self)
-        else:
-            np = drop.copy_to(self)
-            np.set_name(f'drop_{self.serial}')
+        np = drop.copy_to(self)
+        np.set_name(f'drop_{self.serial}')
 
-        # np = drop.copy_to(self)
+        if drop == self.smiley:
+            self.smiley_q.append(np)
+
         self.serial += 1
-        # np.set_name(f'drop_{self.serial}')
         np.set_pos(pos)
         self.world.attach(np.node())
 
@@ -223,10 +195,7 @@ class Drops(NodePath):
             drop = self.drops[now_stage]
             next_stage = drop.merge_into
             clicked_nd.set_tag('merge', next_stage)
-
             self.disappear_vfx.start(drop.vfx, *self.neighbours)
-            # self.vfx.disappear(drop.vfx, *self.neighbours)
-            return True
 
     def set_drop_numbers(self, total):
         for key in self.drops_add[:-1]:
@@ -280,44 +249,44 @@ class Drops(NodePath):
 
         return score
 
-    class JumpSequence(Sequence):
-
-        def __init__(self, np, outer):
-            start = np.get_pos()
-            dest_1 = Point3(0, -10, 0)
-            dest_2 = Point3(9, 0, 13.5)
-            drop = outer.drops[np.get_tag('stage')]
-            func = Func(outer.disappear_vfx.start, drop.vfx, np)
-
-            if not outer.complete_score:
-                func = Func(VFX(drop.vfx, np).start)
-
-            super().__init__(
-                Func(np.make_movable),
-                Parallel(
-                    Sequence(
-                        ProjectileInterval(np, duration=1.0, startPos=start, endPos=dest_1, gravityMult=1.0),
-                        Func(outer.add),
-                        ProjectileInterval(np, duration=1.0, startPos=dest_1, endPos=dest_2, gravityMult=1.0),
-                    ),
-                    np.hprInterval(2.0, (360, 720, 360))
-                ),
-                func,
-                Func(outer.update_complete_score)
-            )
-
     def update_complete_score(self):
         self.complete_score += 1
-
-    def start_jump(self, np, task):
-        Drops.JumpSequence(np, self).start()
-        return task.done
 
     def jump(self, delay=0.15):
         try:
             np = self.smiley_q.popleft()
-            base.taskMgr.do_method_later(
-                delay, self.start_jump, 'jump', extraArgs=[np], appendTask=True
-            )
+            drop = self.drops[np.get_tag('stage')]
+
+            vfx_func = Func(self.disappear_vfx.start, drop.vfx, np)
+            if not self.complete_score:
+                vfx_func = Func(VFX(drop.vfx, np).start)
+
+            Sequence(
+                Wait(delay),
+                Func(self.smiley.make_movable, np.node()),
+                SmileyRollingJumpInterval(np),
+                Func(self.add),
+                vfx_func,
+                Func(self.update_complete_score)
+            ).start()
+
         except IndexError:
             pass
+
+
+class SmileyRollingJumpInterval(Parallel):
+
+    def __init__(self, np):
+        super().__init__()
+        self.halfway = Point3(0, -10, 0)
+        self.dest = Point3(9, 0, 13.5)
+        self.make_rolling_jump_interval(np)
+
+    def make_rolling_jump_interval(self, np):
+        start = np.get_pos()
+
+        self.append(Sequence(
+            ProjectileInterval(np, duration=1.0, startPos=start, endPos=self.halfway, gravityMult=1.0),
+            ProjectileInterval(np, duration=1.0, startPos=self.halfway, endPos=self.dest, gravityMult=1.0),
+        ))
+        self.append(np.hprInterval(2.0, (360, 720, 360)))

@@ -37,6 +37,7 @@ class Status(Enum):
     PAUSE = auto()
     GAMEOVER = auto()
     RESTART = auto()
+    WARNING = auto()
 
 
 class Game(ShowBase):
@@ -84,7 +85,6 @@ class Game(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
-        self.accept('gameover', self.gameover)
         self.taskMgr.add(self.update, 'update')
 
     def create_gui(self):
@@ -171,7 +171,7 @@ class Game(ShowBase):
         if result.has_hit():
             hit_node = result.get_node()
             if not hit_node.has_tag('effecting'):
-                return self.drops.find_neighbours(hit_node)
+                self.drops.find_neighbours(hit_node)
 
     def update(self, task):
         dt = globalClock.get_dt()
@@ -183,7 +183,9 @@ class Game(ShowBase):
                     self.choose(mouse_pos)
                     self.clicked = False
 
-            self.monitor.update()
+            if not self.monitor.update():
+                self.monitor.warn_gameover(self.gameover)
+                self.state = Status.WARNING
 
         if self.state == Status.RESTART:
             if self.monitor.restart_check():

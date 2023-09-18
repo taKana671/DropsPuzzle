@@ -9,6 +9,10 @@ from panda3d.core import Vec3, Point3, BitMask32, LColor
 from panda3d.core import TextNode
 from panda3d.core import TransformState
 
+from panda3d.bullet import BulletGhostNode
+
+
+
 from create_geomnode import Cube, RightTriangularPrism
 
 
@@ -136,6 +140,16 @@ class GameBoard(NodePath):
         self.sensor = Sensor()
         self.sensor.reparent_to(self)
         self.world.attach(self.sensor.node())
+
+
+        ghost = BulletGhostNode('ghost')
+        shape = BulletBoxShape(Vec3(6.5, 2, 3))
+        ghost.add_shape(shape)
+        self.ghost_np = self.attach_new_node(ghost)
+        self.ghost_np.set_pos(Point3(0, 0, 17.5))
+        self.ghost_np.set_collide_mask(BitMask32.bit(3))
+        self.world.attach_ghost(ghost)
+
 
     def is_overflow(self, np):
         if np.get_z() > self.cabinet.dims.top:
