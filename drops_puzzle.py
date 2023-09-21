@@ -67,7 +67,7 @@ class Game(ShowBase):
         self.game_board.reparent_to(self.scene)
         self.game_board.hide_displays()
 
-        self.drops = Drops(self.world)
+        self.drops = Drops(self.world, self.game_board)
         self.drops.reparent_to(self.scene)
 
         self.monitor = Monitor(self.game_board, self.drops)
@@ -119,7 +119,6 @@ class Game(ShowBase):
     def initialize(self):
         print('initialize')
         self.ignore('escape')
-        self.drops.cleanup()
         self.drops.initialize()
         self.monitor.initialize()
         self.game_board.initialize()

@@ -8,6 +8,7 @@ from panda3d.bullet import BulletConvexHullShape, BulletSphereShape
 from panda3d.core import NodePath, PandaNode
 from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import TransparencyAttrib
+from panda3d.core import TransformState
 
 from create_geomnode import Sphere, Polyhedron
 from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
@@ -55,6 +56,9 @@ class Convex(Models):
         self.set_transparency(TransparencyAttrib.MAlpha)
         self.rad = self.get_bounds().get_radius()
 
+        self.node().set_ccd_motion_threshold(1e-7)
+        self.node().set_ccd_swept_sphere_radius(self.rad)
+
 
 class Drop(NamedTuple):
 
@@ -68,9 +72,10 @@ class Drop(NamedTuple):
 
 class Drops(NodePath):
 
-    def __init__(self, world):
+    def __init__(self, world, game_board):
         super().__init__(PandaNode('drops'))
         self.world = world
+        self.game_board = game_board
 
         self.smiley_q = deque()
         self.drops_q = deque()
@@ -118,32 +123,24 @@ class Drops(NodePath):
         self.vfx_q.clear()
 
     def initialize(self):
+        self.cleanup()
         self.serial = 0
         self.complete_score = 0
         self.drops_add = []
 
-    def _check(self, drop, pos, rad):
-        d_pos, d_rad = drop
-        dist = ((d_pos.x - pos.x) ** 2 + (d_pos.y - pos.y) ** 2 + (d_pos.z - pos.z) ** 2) ** 0.5
-
-        if dist > rad + d_rad:
-            return True
-        return False
-
-    def get_start_pos(self, rad):
-        floating_np = [(np.get_pos(), np.get_bounds().get_radius()) for np in self.get_children() if np.get_z() >= 16]
-        # print('child', floating_np)
-
+    def get_start_pos(self, drop):
         for _ in range(3):
-            y = 0
             x = random.uniform(-6, 6)
-            z = random.uniform(16, 19)
-            pos = Point3(x, y, z)
+            from_pt = Point3(x, 0, 19)
+            to_pt = Point3(x, 0, 16)
 
-            if all(self._check(np, pos, rad) for np in floating_np):
-                return pos
+            from_ts = TransformState.make_pos(from_pt)
+            to_ts = TransformState.make_pos(to_pt)
+            result = self.world.sweepTestClosest(
+                drop.node().get_shape(0), from_ts, to_ts, BitMask32.bit(1), 0.0)
 
-        return None
+            if not result.has_hit():
+                return to_pt
 
     def copy_drop(self, drop, pos):
         np = drop.copy_to(self)
@@ -161,12 +158,12 @@ class Drops(NodePath):
             key = self.drops_q[0]
             drop = self.drops[key].model
 
-            if pos := self.get_start_pos(drop.rad):
+            if pos := self.get_start_pos(drop):
                 _ = self.drops_q.popleft()
                 self.copy_drop(drop, pos)
 
     def find_all_neighbours(self, nd, neighbours):
-        """Search all of the balls contacting with each other recursivelly.
+        """Find all of the balls contacting with each other recursivelly.
             Args:
                 nd: BulletRigidBodyNode
                 neighbours: set
@@ -187,15 +184,15 @@ class Drops(NodePath):
                 self._neighbours(con_nd, tag, neighbours)
 
     def find_neighbours(self, clicked_nd):
-        self.neighbours = []
+        neighbours = []
         now_stage = clicked_nd.get_tag('stage')
-        self._neighbours(clicked_nd, now_stage, self.neighbours)
+        self._neighbours(clicked_nd, now_stage, neighbours)
 
-        if len(self.neighbours) >= 2:
+        if len(neighbours) >= 2:
             drop = self.drops[now_stage]
             next_stage = drop.merge_into
             clicked_nd.set_tag('merge', next_stage)
-            self.disappear_vfx.start(drop.vfx, *self.neighbours)
+            self.disappear_vfx.start(drop.vfx, *neighbours)
 
     def set_drop_numbers(self, total):
         for key in self.drops_add[:-1]:
@@ -212,7 +209,7 @@ class Drops(NodePath):
         match len(self.drops_add):
             case 0:
                 # self.drops_add.append('d7')
-                # total = random.randint(20, 25)
+                # total = random.randint(10, 15)
                 self.drops_add.append('d1')
                 total = random.randint(30, 40)
             case 2:
@@ -226,7 +223,6 @@ class Drops(NodePath):
 
     def merge(self):
         score = 0
-
         try:
             np = self.vfx_q.pop()
 

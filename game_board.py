@@ -1,17 +1,13 @@
 from typing import NamedTuple
 
 from direct.gui.DirectGui import OnscreenText
-from panda3d.bullet import BulletRigidBodyNode, BulletGhostNode
+from panda3d.bullet import BulletRigidBodyNode
 from panda3d.bullet import BulletTriangleMeshShape, BulletTriangleMesh
-from panda3d.bullet import BulletConvexHullShape, BulletBoxShape, BulletPlaneShape
+from panda3d.bullet import BulletConvexHullShape
 from panda3d.core import NodePath, PandaNode, CardMaker
 from panda3d.core import Vec3, Point3, BitMask32, LColor
 from panda3d.core import TextNode
 from panda3d.core import TransformState
-
-from panda3d.bullet import BulletGhostNode
-
-
 
 from create_geomnode import Cube, RightTriangularPrism
 
@@ -36,11 +32,11 @@ class Dimensions(NamedTuple):
 
     @property
     def top_left(self):
-        return Point3(self.left, 0, self.top)
+        return Point3(self.left, 0, 16)
 
     @property
     def top_right(self):
-        return Point3(self.right, 0, self.top)
+        return Point3(self.right, 0, 16)
 
 
 class Cabinet(NodePath):
@@ -68,12 +64,12 @@ class Cabinet(NodePath):
                 self.make_convex_shape(name, np, pos, hpr, color)
 
         li = [
-            [Point3(-6.5, 0, 15), Vec3(-90, 0, 0)],
-            [Point3(6.5, 0, 15), Vec3(90, 0, 0)]
+            [Point3(-6.5, 0, 15.5), Vec3(-90, 0, 0)],
+            [Point3(6.5, 0, 15.5), Vec3(90, 0, 0)]
         ]
 
         cm = CardMaker('card')
-        cm.set_frame(-1, 1, -3, 3)
+        cm.set_frame(-1, 1, -3.5, 3.5)
         geomnode = cm.generate()
         np = NodePath(geomnode)
 
@@ -140,16 +136,6 @@ class GameBoard(NodePath):
         self.sensor = Sensor()
         self.sensor.reparent_to(self)
         self.world.attach(self.sensor.node())
-
-
-        ghost = BulletGhostNode('ghost')
-        shape = BulletBoxShape(Vec3(6.5, 2, 3))
-        ghost.add_shape(shape)
-        self.ghost_np = self.attach_new_node(ghost)
-        self.ghost_np.set_pos(Point3(0, 0, 17.5))
-        self.ghost_np.set_collide_mask(BitMask32.bit(3))
-        self.world.attach_ghost(ghost)
-
 
     def is_overflow(self, np):
         if np.get_z() > self.cabinet.dims.top:
