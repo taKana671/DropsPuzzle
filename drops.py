@@ -55,7 +55,6 @@ class Convex(Models):
         self.node().set_mass(0.5)
         self.set_transparency(TransparencyAttrib.MAlpha)
         self.rad = self.get_bounds().get_radius()
-
         self.node().set_ccd_motion_threshold(1e-7)
         self.node().set_ccd_swept_sphere_radius(self.rad)
 

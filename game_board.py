@@ -14,29 +14,17 @@ from create_geomnode import Cube, RightTriangularPrism
 
 class Dimensions(NamedTuple):
 
-    center: Vec3
-    width: float
-    height: float
-
-    @property
-    def left(self):
-        return -self.width / 2
-
-    @property
-    def right(self):
-        return self.width / 2
-
-    @property
-    def top(self):
-        return self.height / 2
+    left: float
+    right: float
+    top: float
 
     @property
     def top_left(self):
-        return Point3(self.left, 0, 16)
+        return Point3(self.left, 0, self.top)
 
     @property
     def top_right(self):
-        return Point3(self.right, 0, 16)
+        return Point3(self.right, 0, self.top)
 
 
 class Cabinet(NodePath):
@@ -46,7 +34,7 @@ class Cabinet(NodePath):
         self.set_collide_mask(BitMask32.bit(1))
         self.set_pos(pos)
         self.node().set_restitution(restitution)
-        self.dims = Dimensions(Vec3(0, 0, 0), 13, 24)
+        self.dims = Dimensions(-6.5, 6.5, 12)
         self.assemble()
 
     def assemble(self):
@@ -98,13 +86,8 @@ class Cabinet(NodePath):
         shape = BulletTriangleMeshShape(mesh, dynamic=False)
         self.node().add_shape(shape, TransformState.make_pos_hpr(pos, hpr))
 
-    def is_inside(self, pos):
-        if self.dims.left < pos.x < self.dims.right \
-                and pos.z <= self.dims.top:
-            return True
 
-
-class Sensor(NodePath):
+class BottomSensor(NodePath):
 
     def __init__(self):
         super().__init__(BulletRigidBodyNode('sensor'))
@@ -133,7 +116,7 @@ class GameBoard(NodePath):
         self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))
 
-        self.sensor = Sensor()
+        self.sensor = BottomSensor()
         self.sensor.reparent_to(self)
         self.world.attach(self.sensor.node())
 

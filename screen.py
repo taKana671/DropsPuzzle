@@ -68,8 +68,7 @@ class Button(DirectButton):
         self.bind(DGG.EXIT, self.roll_out)
 
     def roll_over(self, param=None):
-        self.is_focus = True
-        self.colorScaleInterval(0.05, self.focus_color, blendType='easeInOut').start()
+        self.focus()
 
         for btn in self.btn_group:
             if btn != self and btn.is_focus:
@@ -79,17 +78,15 @@ class Button(DirectButton):
     def roll_out(self, param=None):
         if all(not btn.is_focus for btn in self.btn_group if btn != self):
             return
-
-        self.is_focus = False
-        self.colorScaleInterval(0.05, self.blur_color, blendType='easeInOut').start()
+        self.blur()
 
     def focus(self):
         self.is_focus = True
-        self.set_color_scale(self.focus_color)
+        self.colorScaleInterval(0.05, self.focus_color, blendType='easeInOut').start()
 
     def blur(self):
         self.is_focus = False
-        self.set_color_scale(self.blur_color)
+        self.colorScaleInterval(0.05, self.blur_color, blendType='easeInOut').start()
 
 
 class Screen:

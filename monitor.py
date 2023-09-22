@@ -56,11 +56,6 @@ class Monitor:
 
             self.drops.fall()
 
-            # ghost = self.game_board.ghost_np.node()
-            # print('ghost', [nd for nd in ghost.get_overlapping_nodes()])
-            # print('-------------')
-
-
             if score := self.drops.merge():
                 self.game_board.score_display.add(score)
 
@@ -89,7 +84,6 @@ class Monitor:
         if not self.drops.disappear_vfx.is_playing():
             for np in overflows:
                 if self.game_board.is_overflow(np):
-                    # self.warn_gameover()
                     self.state = Status.FINISH
                     break
 
@@ -99,6 +93,7 @@ class Monitor:
         return task.done
 
     def find_overflow(self):
+        """Find objects not in the air and not int the gameboard cabinet."""
         neighbours = set()
 
         for nd in self.game_board.sense_contact():
