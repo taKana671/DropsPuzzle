@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from panda3d.core import LineSegs
 from panda3d.core import NodePath
 
@@ -30,3 +32,13 @@ def make_line(from_pt, to_pt, color):
     node = lines.create()
 
     return NodePath(node)
+
+
+def round(val, digit=2):
+    p = 10 ** digit
+    return (val * p * 2 + 1) // 2 / p
+
+
+def round_float(f, digit='0.01'):
+    rounded = Decimal(str(f)).quantize(Decimal(digit), rounding=ROUND_HALF_UP)
+    return float(rounded)

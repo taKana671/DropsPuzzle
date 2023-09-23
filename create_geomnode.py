@@ -14,22 +14,61 @@ from utils import load_obj
 OBJ_DIR = 'objs'
 
 
-class Colors(Enum):
+# class Colors(Enum):
 
-    RED = LColor(1, 0, 0, 1)
-    BLUE = LColor(0, 0, 1, 1)
-    YELLOW = LColor(1, 1, 0, 1)
-    GREEN = LColor(0, 0.5, 0, 1)
-    ORANGE = LColor(1, 0.549, 0, 1)
-    MAGENTA = LColor(1, 0, 1, 1)
-    PURPLE = LColor(0.501, 0, 0.501, 1)
-    SKY = LColor(0, 0.74, 1, 1)
-    LIME = LColor(0, 1, 0, 1)
-    VIOLET = LColor(0.54, 0.16, 0.88, 1)
+#     RED = LColor(1, 0, 0, 1)
+#     BLUE = LColor(0, 0, 1, 1)
+#     YELLOW = LColor(1, 1, 0, 1)
+#     GREEN = LColor(0, 0.5, 0, 1)
+#     ORANGE = LColor(1, 0.549, 0, 1)
+#     MAGENTA = LColor(1, 0, 1, 1)
+#     PURPLE = LColor(0.501, 0, 0.501, 1)
+#     SKY = LColor(0, 0.74, 1, 1)
+#     LIME = LColor(0, 1, 0, 1)
+#     VIOLET = LColor(0.54, 0.16, 0.88, 1)
 
-    @classmethod
-    def select(cls, n):
-        return random.sample([m.value for m in cls], n)
+#     @classmethod
+#     def select(cls, n):
+#         return random.sample([m.value for m in cls], n)
+
+# class Colors(Enum):
+
+#     BRIGHT = LColor(0.93, 0.68, 0.51, 1)
+#     DARK = LColor(0.3, 0.18, 0.1, 1)
+#     DARK_GRAYISH = LColor(0.25, 0.19, 0.15, 1)
+#     DEEP = LColor(0.49, 0.24, 0.07, 1)
+#     DULL = LColor(0.63, 0.38, 0.21, 1)
+#     GRAYISH = LColor(0.53, 0.4, 0.31, 1)
+#     # LIGHT = LColor(0.93, 0.84, 0.78, 1)
+#     LIGHT_GRAYISH = LColor(0.72, 0.61, 0.54, 1)
+#     # PALE = LColor(0.89, 0.84, 0.81, 1)
+#     SOFT = LColor(0.82, 0.59, 0.44, 1)
+#     STRONG = LColor(0.87, 0.42, 0.13, 1)
+#     VIVID = LColor(1.0, 0.4, 0.0, 1)
+
+
+#     @classmethod
+#     def select(cls, n):
+#         return random.sample([m.value for m in cls], n)
+
+# class Colors(Enum):
+
+#     VIVID = LColor(0.0, 1.0, 0.9, 1)
+#     BRIGHT = LColor(0.51, 0.93, 0.89, 1)
+#     STRONG = LColor(0.13, 0.87, 0.8, 1)
+#     DEEP = LColor(0.07, 0.49, 0.45, 1)
+#     # LIGHT = LColor(0.78, 0.93, 0.91, 1)
+#     SOFT = LColor(0.44, 0.82, 0.78, 1)
+#     DULL = LColor(0.21, 0.63, 0.59, 1)
+#     DARK = LColor(0.1, 0.3, 0.28, 1)
+#     # PALE = LColor(0.81, 0.89, 0.88, 1)
+#     LIGHT_GRAYISH = LColor(0.54, 0.72, 0.71, 1)
+#     GRAYISH = LColor(0.31, 0.53, 0.51, 1)
+#     DARK_GRAYISH = LColor(0.15, 0.25, 0.24, 1)
+
+#     @classmethod
+#     def select(cls, n):
+#         return random.sample([m.value for m in cls], n)
 
 
 class GeomRoot(NodePath):
@@ -261,19 +300,6 @@ class TextureAtlasNode(GeomRoot):
         super().__init__()
 
     def create_vertices(self, vdata_values, prim_indices):
-        # vertices = [
-        #     (-0.5, 0, -0.5),
-        #     (0.5, 0, -0.5),
-        #     (0.5, 0, 0.5),
-        #     (-0.5, 0, 0.5)
-        # ]
-        # uvs = [
-        #     (0, self.start_v),
-        #     (self.max_u, self.start_v),
-        #     (self.max_u, 1),
-        #     (0, 1)
-        # ]
-
         vertices = [
             (-0.5, 0, 0.5),
             (-0.5, 0, -0.5),
@@ -323,10 +349,11 @@ class Sphere(DropsGeomRoot):
                 2: one line; two color
     """
 
-    def __init__(self, divnum=3, pattern=0):
+    def __init__(self, colors, divnum=3, pattern=0):
         self.obj_file = f'{OBJ_DIR}/icosahedron.obj'
         self.divnum = divnum
         self.pattern = pattern
+        self.colors = colors
         super().__init__()
 
     def calc_midpoints(self, face):
@@ -364,25 +391,27 @@ class Sphere(DropsGeomRoot):
                 get_vertex_color = functools.partial(
                     self.get_vertex_color,
                     lambda vertices: 0,
-                    Colors.select(1))
+                    self.colors.select(1)
+                )                          # Colors.select(1))
             case 1:
                 get_vertex_color = functools.partial(
                     self.get_vertex_color,
                     lambda vertices: 0 if any(not (v.z or v.x) or not (v.z or v.y) or not (v.x or v.y) for v in vertices) else 1,
-                    Colors.select(2)
+                    self.colors.select(2)
+                    # Colors.select(2)
                 )
             case 2:
                 get_vertex_color = functools.partial(
                     self.get_vertex_color,
                     lambda vertices: 0 if any(v.z == 0 for v in vertices) else 1,
-                    Colors.select(2)
+                    # Colors.select(2)
+                    self.colors.select(2)
                 )
 
         start = 0
         for face in faces:
             face_verts = [Vec3(vertices[n]) for n in face]
             for subdiv_face in self.subdivide(face_verts):
-                # color = colors[idx(subdiv_face)]
                 color = get_vertex_color(subdiv_face)
                 for vert in subdiv_face:
                     normal = vert.normalized()
@@ -399,8 +428,9 @@ class Sphere(DropsGeomRoot):
 
 class Polyhedron(DropsGeomRoot):
 
-    def __init__(self, file_name):
+    def __init__(self, colors, file_name):
         self.obj_file = f'{OBJ_DIR}/{file_name}'
+        self.colors = colors
         super().__init__()
 
     def triangle(self, start):
@@ -429,7 +459,8 @@ class Polyhedron(DropsGeomRoot):
     def create_vertices(self, vdata_values, prim_indices):
         vertices, faces = load_obj(self.obj_file)
         nums = set(len(face) for face in faces)
-        colors = Colors.select(len(nums))
+        # colors = Colors.select(len(nums))
+        colors = self.colors.select(len(nums))
         face_color = {n: colors[i] for i, n in enumerate(nums)}
 
         start = 0

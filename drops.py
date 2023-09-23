@@ -10,6 +10,7 @@ from panda3d.core import Vec3, Point3, BitMask32
 from panda3d.core import TransparencyAttrib
 from panda3d.core import TransformState
 
+from colors import theme_colors
 from create_geomnode import Sphere, Polyhedron
 from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
 
@@ -80,14 +81,16 @@ class Drops(NodePath):
         self.drops_q = deque()
         self.vfx_q = deque()
         self.disappear_vfx = DisappearEffect(self.vfx_q)
+        self.colors = theme_colors[:]
+        random.shuffle(self.colors)
 
-        d1 = Convex('d1', Sphere(), Vec3(0.4))
-        d2 = Convex('d2', Sphere(pattern=1), Vec3(0.5))
-        d3 = Convex('d3', Sphere(pattern=2), Vec3(0.6))
-        d4 = Convex('d4', Polyhedron('d4.obj'), Vec3(0.8))   # icosidodecahedron
-        d5 = Convex('d5', Polyhedron('d5.obj'), Vec3(1.0))   # Parabiaugmented truncated dodecahedron
-        d6 = Convex('d6', Polyhedron('d6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
-        d7 = Convex('d7', Polyhedron('d7.obj'), Vec3(1.5))   # Truncated icosahedron
+        d1 = Convex('d1', Sphere(self.colors[0]), Vec3(0.4))
+        d2 = Convex('d2', Sphere(self.colors[0], pattern=1), Vec3(0.5))
+        d3 = Convex('d3', Sphere(self.colors[0], pattern=2), Vec3(0.6))
+        d4 = Convex('d4', Polyhedron(self.colors[0], 'd4.obj'), Vec3(0.8))   # icosidodecahedron
+        d5 = Convex('d5', Polyhedron(self.colors[0], 'd5.obj'), Vec3(1.0))   # Parabiaugmented truncated dodecahedron
+        d6 = Convex('d6', Polyhedron(self.colors[0], 'd6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
+        d7 = Convex('d7', Polyhedron(self.colors[0], 'd7.obj'), Vec3(1.5))   # Truncated icosahedron
         self.smiley = Smiley('d8', base.loader.loadModel('smiley'))
 
         tex_1 = TextureAtlas('boom_fire.png', tgt_remove_row=2)
