@@ -38,7 +38,13 @@ class Cabinet(NodePath):
         self.assemble()
 
     def assemble(self):
-        color = LColor(0, 0.5, 0, 1)
+        # color = LColor(0, 0.5, 0, 1)
+        # color = LColor(0.27, 0.39, 0.47, 1)
+        # color = LColor(0.36, 0.47, 0.58, 1)
+        # color = LColor(0.45, 0.48, 0.50, 1)  # 鉛色 〇
+        color = LColor(0.35, 0.42, 0.47, 1)  # あいねずみ
+        # color = LColor(0.45, 0.49, 0.45, 1)  # 利休ねずみ
+        
 
         li = {
             Cube(w=13, d=2, h=10): [((0, 0, -5), (0, 0, 0))],

@@ -1,6 +1,5 @@
 import random
 from collections import deque
-from typing import NamedTuple
 
 from direct.interval.IntervalGlobal import ProjectileInterval, Parallel, Sequence, Func, Wait
 from panda3d.bullet import BulletRigidBodyNode
@@ -60,57 +59,81 @@ class Convex(Models):
         self.node().set_ccd_swept_sphere_radius(self.rad)
 
 
-class Drop(NamedTuple):
+class Drop:
 
-    model: Convex
-    merge_into: Convex
-    vfx: VFXSetting
-    appendable: bool
-    last: bool = False
-    score: int = 0
+    def __init__(self, stage, vfx_setting, appendable,
+                 merge_into=None, model=None, scale=Vec3(1), last=False, score=0):
+        self.stage = stage
+        self.merge_into = merge_into
+        self.vfx = vfx_setting
+        self.appendable = appendable
+        self.scale = scale
+        self.last = last
+        self.score = score
+        self.model = model
+
+    def set_model(self, geomnode):
+        self.model = Convex(self.stage, geomnode, self.scale)
 
 
 class Drops(NodePath):
 
-    def __init__(self, world, game_board):
+    def __init__(self, world):
         super().__init__(PandaNode('drops'))
         self.world = world
-        self.game_board = game_board
 
         self.smiley_q = deque()
         self.drops_q = deque()
         self.vfx_q = deque()
         self.disappear_vfx = DisappearEffect(self.vfx_q)
+        self.smiley = Smiley('d8', base.loader.loadModel('smiley'))
+        self.setup_drops()
+
         self.colors = theme_colors[:]
         random.shuffle(self.colors)
+        self.color_idx = 0
 
-        d1 = Convex('d1', Sphere(self.colors[0]), Vec3(0.4))
-        d2 = Convex('d2', Sphere(self.colors[0], pattern=1), Vec3(0.5))
-        d3 = Convex('d3', Sphere(self.colors[0], pattern=2), Vec3(0.6))
-        d4 = Convex('d4', Polyhedron(self.colors[0], 'd4.obj'), Vec3(0.8))   # icosidodecahedron
-        d5 = Convex('d5', Polyhedron(self.colors[0], 'd5.obj'), Vec3(1.0))   # Parabiaugmented truncated dodecahedron
-        d6 = Convex('d6', Polyhedron(self.colors[0], 'd6.obj'), Vec3(1.2))   # Truncated icosidodecahedron
-        d7 = Convex('d7', Polyhedron(self.colors[0], 'd7.obj'), Vec3(1.5))   # Truncated icosahedron
-        self.smiley = Smiley('d8', base.loader.loadModel('smiley'))
+    def setup_drops(self):
+        vfx_1 = VFXSetting(TextureAtlas('boom_fire.png'), scale=2.0, tgt_remove_row=2)
+        vfx_2 = VFXSetting(TextureAtlas('blast2.png'), scale=2.2, vfx_end_row=5, tgt_remove_row=2)
+        vfx_3 = VFXSetting(TextureAtlas('rotating_fire.png'), scale=3.0, vfx_end_row=6, tgt_remove_row=3)
+        vfx_4 = VFXSetting(TextureAtlas('m_blast.png'), scale=4.0, tgt_remove_row=3)
+        vfx_5 = VFXSetting(TextureAtlas('spark2.png'), scale=2.0, vfx_end_row=5, tgt_remove_row=3)
+        vfx_6 = VFXSetting(TextureAtlas('spark3.png'), scale=6.0, tgt_remove_row=4)
+        vfx_7 = VFXSetting(TextureAtlas('spark1.png'), scale=6.5, offset=Vec3(1.0, 0, 0), vfx_end_row=4, tgt_remove_row=2)
+        vfx_8 = VFXSetting(TextureAtlas('spark2.png'), scale=2.0, offset=Vec3(1, 0, 1), tgt_remove_row=3)
 
-        tex_1 = TextureAtlas('boom_fire.png', tgt_remove_row=2)
-        tex_2 = TextureAtlas('blast2.png', vfx_end_row=5, tgt_remove_row=2)
-        tex_3 = TextureAtlas('rotating_fire.png', vfx_end_row=6, tgt_remove_row=3)
-        tex_4 = TextureAtlas('m_blast.png', tgt_remove_row=3)
-        tex_5 = TextureAtlas('spark2.png', vfx_end_row=5, tgt_remove_row=3)
-        tex_6 = TextureAtlas('spark3.png', tgt_remove_row=4)
-        tex_7 = TextureAtlas('spark1.png', vfx_end_row=4, tgt_remove_row=2)
+        self.drops = dict(
+            d1=Drop('d1', merge_into='d2', vfx_setting=vfx_1, appendable=True, scale=Vec3(0.4)),
+            d2=Drop('d2', merge_into='d3', vfx_setting=vfx_2, appendable=True, scale=Vec3(0.5)),
+            d3=Drop('d3', merge_into='d4', vfx_setting=vfx_3, appendable=True, scale=Vec3(0.6), score=100),
+            d4=Drop('d4', merge_into='d5', vfx_setting=vfx_4, appendable=True, scale=Vec3(0.8), score=200),
+            d5=Drop('d5', merge_into='d6', vfx_setting=vfx_5, appendable=False, scale=Vec3(1.0), score=400),
+            d6=Drop('d6', merge_into='d7', vfx_setting=vfx_6, appendable=False, scale=Vec3(1.2), score=500),
+            d7=Drop('d7', merge_into='d8', vfx_setting=vfx_7, appendable=False, scale=Vec3(1.5), score=600),
+            d8=Drop('d8', model=self.smiley, vfx_setting=vfx_8, appendable=False, score=1000, last=True)
+        )
 
-        self.drops = {
-            'd1': Drop(model=d1, merge_into='d2', vfx=VFXSetting(texture=tex_1, scale=2), appendable=True),
-            'd2': Drop(model=d2, merge_into='d3', vfx=VFXSetting(texture=tex_2, scale=2.2), appendable=True),
-            'd3': Drop(model=d3, merge_into='d4', vfx=VFXSetting(texture=tex_3, scale=3.0), appendable=True, score=100),
-            'd4': Drop(model=d4, merge_into='d5', vfx=VFXSetting(texture=tex_4, scale=4.0), appendable=True, score=200),
-            'd5': Drop(model=d5, merge_into='d6', vfx=VFXSetting(texture=tex_5, scale=2.0), appendable=False, score=400),
-            'd6': Drop(model=d6, merge_into='d7', vfx=VFXSetting(texture=tex_6, scale=6.0), appendable=False, score=500),
-            'd7': Drop(model=d7, merge_into='d8', vfx=VFXSetting(texture=tex_7, scale=6.5, offset=Vec3(1.0, 0, 0)), appendable=False, score=600), # 6.5
-            'd8': Drop(model=self.smiley, merge_into=None, vfx=VFXSetting(texture=tex_5, scale=2, offset=Vec3(1, 0, 1)), appendable=False, last=True, score=1000),
-        }
+    def change_drop_color(self):
+        colors = self.colors[self.color_idx]
+
+        self.color_idx += 1
+        if self.color_idx == len(self.colors):
+            self.color_idx = 0
+
+        geom_nodes = dict(
+            d1=Sphere(colors),
+            d2=Sphere(colors, pattern=1),
+            d3=Sphere(colors, pattern=2),
+            d4=Polyhedron(colors, 'd4.obj'),   # icosidodecahedron
+            d5=Polyhedron(colors, 'd5.obj'),   # Parabiaugmented truncated dodecahedron
+            d6=Polyhedron(colors, 'd6.obj'),   # Truncated icosidodecahedron
+            d7=Polyhedron(colors, 'd7.obj')    # Truncated icosahedron
+        )
+
+        for key, geom_node in geom_nodes.items():
+            drop = self.drops[key]
+            drop.set_model(geom_node)
 
     def delete(self, np):
         self.world.remove(np.node())
@@ -126,6 +149,7 @@ class Drops(NodePath):
 
     def initialize(self):
         self.cleanup()
+        self.change_drop_color()
         self.serial = 0
         self.complete_score = 0
         self.drops_add = []
@@ -210,8 +234,6 @@ class Drops(NodePath):
     def add(self):
         match len(self.drops_add):
             case 0:
-                # self.drops_add.append('d7')
-                # total = random.randint(10, 15)
                 self.drops_add.append('d1')
                 total = random.randint(30, 40)
             case 2:

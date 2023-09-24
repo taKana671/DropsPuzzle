@@ -93,7 +93,7 @@ class Screen:
 
     def __init__(self, gui=None):
         self.gui = gui
-        self.color_in = LColor(0, 0, 0, 1.0)
+        self.color_in = LColor(0, 0, 0, 0.8)
         self.color_out = LColor(0, 0, 0, 0)
         self.setup_background()
 

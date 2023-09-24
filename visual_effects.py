@@ -9,12 +9,12 @@ from create_geomnode import TextureAtlasNode
 
 class TextureAtlas:
 
-    def __init__(self, file_name, cols=8, rows=8, vfx_end_row=8, tgt_remove_row=4):
+    def __init__(self, file_name, cols=8, rows=8):
         self.texture = self.load(file_name)
         self.div_u = 1 / cols
         self.div_v = 1 / rows
-        self.tgt_remove_v = -self.div_v * tgt_remove_row
-        self.vfx_end_v = -self.div_v * vfx_end_row
+        self.rows = rows
+        self.cols = cols
 
     def load(self, file_name):
         path = f'textures/{file_name}'
@@ -28,6 +28,21 @@ class VFXSetting(NamedTuple):
     scale: float
     offset: Vec3 = Vec3(0, 0, 0)
     hpr: Vec3 = Vec3(0, 0, 0)
+
+    tgt_remove_row: int = None
+    vfx_end_row: int = None
+
+    @property
+    def tgt_remove_v(self):
+        if self.tgt_remove_row is not None:
+            return -self.texture.div_v * self.tgt_remove_row
+        return -self.texture.div_v * self.texture.rows
+
+    @property
+    def vfx_end_v(self):
+        if self.vfx_end_row is not None:
+            return -self.texture.div_v * self.vfx_end_row
+        return -self.texture.div_v * self.texture.rows
 
 
 class Effect(NodePath):
@@ -57,6 +72,10 @@ class Effect(NodePath):
         self.offset = settings.offset
         self.tex = tex
 
+        self.tgt_remove_v = settings.tgt_remove_v
+        self.vfx_end_v = settings.vfx_end_v
+        self.settings = settings
+
     def run(self):
         if self.target:
             self.set_pos(self.target.get_pos(base.render) + self.offset)
@@ -69,7 +88,7 @@ class Effect(NodePath):
             self.pos_v -= self.tex.div_v
 
         # # comes to the end
-        if self.pos_v <= self.tex.vfx_end_v:
+        if self.pos_v <= self.vfx_end_v:
             return True
 
         self.look_at(base.camera)
@@ -112,7 +131,7 @@ class VFX:
         base.taskMgr.do_method_later(delay, self._repeat, 'repeat')
 
     def _run(self, task):
-        if not self.vfx.run():
+        if self.vfx.run():
             self.vfx = self.vfx.remove_node()
             return task.done
 
@@ -169,7 +188,7 @@ class DisappearEffect:
 
     def disappear(self, vfx):
         if vfx.pos_u + vfx.tex.div_u == 1.0 \
-                and vfx.pos_v == vfx.tex.tgt_remove_v:
+                and vfx.pos_v == vfx.tgt_remove_v:
             self.drops_q.append(vfx.target)
             vfx.target = None
 
