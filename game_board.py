@@ -39,12 +39,7 @@ class Cabinet(NodePath):
 
     def assemble(self):
         # color = LColor(0, 0.5, 0, 1)
-        # color = LColor(0.27, 0.39, 0.47, 1)
-        # color = LColor(0.36, 0.47, 0.58, 1)
-        # color = LColor(0.45, 0.48, 0.50, 1)  # 鉛色 〇
         color = LColor(0.35, 0.42, 0.47, 1)  # あいねずみ
-        # color = LColor(0.45, 0.49, 0.45, 1)  # 利休ねずみ
-        
 
         li = {
             Cube(w=13, d=2, h=10): [((0, 0, -5), (0, 0, 0))],
@@ -152,6 +147,18 @@ class GameBoard(NodePath):
         for con in self.world.contact_test(self.sensor.node(), use_filter=True).get_contacts():
             nd = con.get_node0()
             yield nd
+
+    def maybe_find_overflow(self):
+        from_pt = self.cabinet.dims.top_left + Vec3(0, 0, 1)
+        to_pt = self.cabinet.dims.top_right + Vec3(0, 0, 1)
+
+        result = self.world.ray_test_closest(
+            from_pt,
+            to_pt,
+            BitMask32.bit(3)
+        )
+        print('maybe overflow? ', result.has_hit())
+        return result.has_hit()
 
 
 class NumberDisplay(OnscreenText):

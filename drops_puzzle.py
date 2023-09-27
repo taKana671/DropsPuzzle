@@ -85,6 +85,7 @@ class Game(ShowBase):
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
         self.accept('mouse1', self.mouse_click)
+        self.accept('gameover', self.gameover)
         self.taskMgr.add(self.update, 'update')
 
     def create_gui(self):
@@ -140,7 +141,7 @@ class Game(ShowBase):
     def gameover(self):
         print('gameover!!!!')
         self.ignore('escape')
-        self.state = Status.GAMEOVER
+        # self.state = Status.GAMEOVER
         self.game_board.hide_displays()
         self.screen.gui = self.start_frame
         self.screen.fade_in(self.accept, 'escape', sys.exit)
@@ -183,8 +184,16 @@ class Game(ShowBase):
                     self.clicked = False
 
             if not self.monitor.update():
-                self.monitor.warn_gameover(self.gameover)
-                self.state = Status.WARNING
+                self.state = Status.GAMEOVER
+                # self.gameover()
+                # self.monitor.warn_gameover(self.gameover)
+                # self.state = Status.WARNING
+
+        # if self.state == Status.GAMEOVER:
+        #     if self.monitor.restart_check():
+        #         self.state = None
+        #         base.taskMgr.do_method_later(3, self.gameover, 'judge')
+        #         # self.gameover()
 
         if self.state == Status.RESTART:
             if self.monitor.restart_check():

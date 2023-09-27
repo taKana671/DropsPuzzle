@@ -152,7 +152,7 @@ class Red(Colors):
     DARK_GRAYISH = LColor(0.25, 0.15, 0.16, 1)
     DEEP = LColor(0.49, 0.07, 0.11, 1)
     DULL = LColor(0.63, 0.21, 0.25, 1)
-    GRAYISH = LColor(0.05, 0.31, 0.34, 1)
+    GRAYISH = LColor(0.53, 0.31, 0.34, 1)
     # LIGHT = LColor(0.93, 0.78, 0.79, 1)
     LIGHT_GRAYISH = LColor(0.72, 0.54, 0.56, 1)
     # PALE = LColor(0.89, 0.81, 0.82, 1)
