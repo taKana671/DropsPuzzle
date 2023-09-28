@@ -9,7 +9,7 @@ class Status(Enum):
 
     MONITORNING = auto()
     FINISH = auto()
-    WARNING = auto()
+    GAMEOVER = auto()
 
 
 class BlinkingSequence(Sequence):
@@ -40,60 +40,33 @@ class Monitor:
         self.game_board = game_board
         self.drops = drops
         self.timer = 7
+        self.state = None
 
     def initialize(self):
         self.before = globalClock.get_frame_time()
         self.state = Status.MONITORNING
 
     def update(self):
-        
-        # if self.state == Status.FINISH:
-        if self.state == Status.WARNING:
-            self.warn_gameover()
-            return False
+        match self.state:
+            case Status.FINISH:
+                self.warn_gameover()
 
-        if self.state == Status.MONITORNING:
-            if self.before is not None and globalClock.get_frame_time() - self.before >= self.timer:
-                if self.game_board.maybe_find_overflow():
-                    base.taskMgr.do_method_later(3, self.judge, 'judge')
-                    self.before = None
-                else:
-                    self.before = globalClock.get_frame_time()
+            case Status.MONITORNING:
+                if self.before is not None \
+                        and globalClock.get_frame_time() - self.before >= self.timer:
+                    if self.game_board.maybe_find_overflow():
+                        base.taskMgr.do_method_later(3, self.judge, 'judge')
+                        self.before = None
+                    else:
+                        self.before = globalClock.get_frame_time()
 
-        self.drops.fall()
+                self.drops.fall()
 
-        if score := self.drops.merge():
-            self.game_board.score_display.add(score)
+                if score := self.drops.merge():
+                    self.game_board.score_display.add(score)
 
-        self.drops.jump()
-        self.game_board.merge_display.show_score(self.drops.complete_score, True)
-
-        return True
-
-
-
-    # def update(self):
-    #     if self.state == Status.FINISH:
-    #         return False
-
-    #     if self.state == Status.MONITORNING:
-    #         if self.before is not None and globalClock.get_frame_time() - self.before >= self.timer:
-    #             if overflow := [np for np in self.find_overflow()]:
-    #                 base.taskMgr.do_method_later(
-    #                     3, self.judge, 'judge', extraArgs=[overflow], appendTask=True)
-    #                 self.before = None
-    #             else:
-    #                 self.before = globalClock.get_frame_time()
-
-    #         self.drops.fall()
-
-    #         if score := self.drops.merge():
-    #             self.game_board.score_display.add(score)
-
-    #         self.drops.jump()
-    #         self.game_board.merge_display.show_score(self.drops.complete_score, True)
-
-    #     return True
+                self.drops.jump()
+                self.game_board.merge_display.show_score(self.drops.complete_score, True)
 
     def restart_check(self):
         if not self.drops.disappear_vfx.is_playing():
@@ -102,49 +75,22 @@ class Monitor:
 
     def finish_monitoring(self):
         base.messenger.send('gameover')
-        # self.state = Status.FINISH
-
-    # def warn_gameover(self, callback, *args, **kwargs):
-    #     seq = Sequence()
-    #     overflows = [
-    #         np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)
-    #     ]
-    #     seq = WarningSequence(overflows, callback, *args, **kwargs)
-    #     seq.start()
+        self.state = Status.GAMEOVER
 
     def warn_gameover(self):
         overflow = [
-            np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)
-        ]
-        seq = WarningSequence(overflow, self.finish_monitoring)
-        seq.start()
+            np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)]
+        WarningSequence(overflow, self.finish_monitoring).start()
+        self.state = Status.MONITORNING
 
     def judge(self, task):
         if self.find_overflow():
-            # self.warn_gameover()
-            self.state = Status.WARNING
+            self.state = Status.FINISH
 
         if self.state == Status.MONITORNING:
             self.before = globalClock.get_frame_time()
 
         return task.done
-
-
-    # def judge(self, overflows, task):
-    #     if not self.drops.disappear_vfx.is_playing():
-    #         for np in overflows:
-    #             if self.game_board.is_overflow(np):
-
-    #                 # ****************
-    #                 self.warn_gameover(self.finish_monitoring)
-    #                 # ****************
-    #                 self.state = Status.WARNING
-    #                 break
-
-    #     if self.state == Status.MONITORNING:
-    #         self.before = globalClock.get_frame_time()
-
-    #     return task.done
 
     def find_overflow(self):
         """Find objects not in the air and not int the gameboard cabinet."""
@@ -157,17 +103,3 @@ class Monitor:
             np = NodePath(nd)
             if self.game_board.is_overflow(np):
                 return True
-
-
-
-    # def find_overflow(self):
-    #     """Find objects not in the air and not int the gameboard cabinet."""
-    #     neighbours = set()
-
-    #     for nd in self.game_board.sense_contact():
-    #         self.drops.find_all_neighbours(nd, neighbours)
-
-    #     for nd in neighbours:
-    #         np = NodePath(nd)
-    #         if self.game_board.is_overflow(np):
-    #             yield np

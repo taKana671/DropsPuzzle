@@ -141,7 +141,7 @@ class Game(ShowBase):
     def gameover(self):
         print('gameover!!!!')
         self.ignore('escape')
-        # self.state = Status.GAMEOVER
+        self.state = Status.GAMEOVER
         self.game_board.hide_displays()
         self.screen.gui = self.start_frame
         self.screen.fade_in(self.accept, 'escape', sys.exit)
@@ -176,30 +176,20 @@ class Game(ShowBase):
     def update(self, task):
         dt = globalClock.get_dt()
 
-        if self.state == Status.PLAY:
-            if self.mouseWatcherNode.has_mouse():
-                mouse_pos = self.mouseWatcherNode.get_mouse()
-                if self.clicked:
-                    self.choose(mouse_pos)
-                    self.clicked = False
+        match self.state:
+            case Status.PLAY:
+                if self.mouseWatcherNode.has_mouse():
+                    mouse_pos = self.mouseWatcherNode.get_mouse()
+                    if self.clicked:
+                        self.choose(mouse_pos)
+                        self.clicked = False
 
-            if not self.monitor.update():
-                self.state = Status.GAMEOVER
-                # self.gameover()
-                # self.monitor.warn_gameover(self.gameover)
-                # self.state = Status.WARNING
+            case Status.RESTART:
+                if self.monitor.restart_check():
+                    self.state = Status.PAUSE
+                    self.initialize()
 
-        # if self.state == Status.GAMEOVER:
-        #     if self.monitor.restart_check():
-        #         self.state = None
-        #         base.taskMgr.do_method_later(3, self.gameover, 'judge')
-        #         # self.gameover()
-
-        if self.state == Status.RESTART:
-            if self.monitor.restart_check():
-                self.state = Status.PAUSE
-                self.initialize()
-
+        self.monitor.update()
         self.world.do_physics(dt)
         return task.cont
 
