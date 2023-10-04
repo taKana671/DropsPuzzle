@@ -9,13 +9,12 @@ from panda3d.core import NodePath
 from panda3d.core import Vec3, BitMask32, Point3, LColor
 
 from game_board import GameBoard
+from game_control import GameControl
 from drops import Drops
 from lights import BasicAmbientLight, BasicDayLight
-from monitor import Monitor
 from screen import Screen, Button, Frame, Label
 from utils import make_line
-
-
+ 
 # load_prc_file_data("", """
 #     window-title Panda3D drops puzzle
 #     fullscreen false
@@ -67,10 +66,10 @@ class Game(ShowBase):
         self.game_board.reparent_to(self.scene)
         self.game_board.hide_displays()
 
-        self.drops = Drops(self.world)
+        self.drops = Drops(self.world, self.game_board)
         self.drops.reparent_to(self.scene)
 
-        self.monitor = Monitor(self.game_board, self.drops)
+        self.game_control = GameControl(self.game_board, self.drops)
 
         self.debug = self.render.attach_new_node(BulletDebugNode('debug'))
         self.world.set_debug_node(self.debug.node())
@@ -84,8 +83,9 @@ class Game(ShowBase):
 
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
-        self.accept('mouse1', self.mouse_click)
+        self.accept('mouse1', self.mouse_click) 
         self.accept('gameover', self.gameover)
+        self.accept('reboot', self.initialize)
         self.taskMgr.add(self.update, 'update')
 
     def create_gui(self):
@@ -101,7 +101,8 @@ class Game(ShowBase):
         self.pause_frame = Frame(self.aspect2d, hide=True)
         Label(self.pause_frame, 'PAUSE', (0, 0, 0.3), font)
         continue_btn = Button(self.pause_frame, 'CONTINUE', (0, 0, 0), font, self.continue_game, focus=True)
-        reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.restart_game)
+        reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.reboot)
+        # reset_btn = Button(self.pause_frame, 'RRSET', (0, 0, -0.2), font, self.initialize)
         quit_btn2 = Button(self.pause_frame, 'QUIT', (0, 0, -0.4), font, lambda: sys.exit())
         self.pause_frame.create_group(continue_btn, reset_btn, quit_btn2)
         self.pause_frame.hide()
@@ -121,32 +122,39 @@ class Game(ShowBase):
         print('initialize')
         self.ignore('escape')
         self.drops.initialize()
-        self.monitor.initialize()
+        self.game_control.initialize()
         self.game_board.initialize()
         self.screen.fade_out(self.start_game, True)
 
     def pause(self):
-        print('pause!!!!')
-        self.ignore('escape')
-        self.state = Status.PAUSE
-        self.game_board.hide_displays()
-        self.screen.gui = self.pause_frame
-        self.screen.fade_in(self.accept, 'escape', sys.exit)
+        # if self.state != Status.GAMEOVER:
+        if self.game_control.pause_game():
+            print('pause!!!!')
+            self.ignore('escape')
+            # self.game_board.stop_gameover_judge()
+            self.state = Status.PAUSE
+            self.game_board.hide_displays()
+            self.screen.gui = self.pause_frame
+            self.screen.fade_in(self.accept, 'escape', sys.exit)
 
     def continue_game(self):
         print('continue!!!!')
         self.ignore('escape')
+        self.state = Status.PLAY
+        self.game_control.resume_game()
         self.screen.fade_out(self.start_game)
 
     def gameover(self):
         print('gameover!!!!')
         self.ignore('escape')
-        self.state = Status.GAMEOVER
+        # self.state = Status.GAMEOVER
         self.game_board.hide_displays()
         self.screen.gui = self.start_frame
         self.screen.fade_in(self.accept, 'escape', sys.exit)
 
-    def restart_game(self):
+    def reboot(self):
+        self.game_control.reboot_game()
+        self.initialize()
         self.state = Status.RESTART
 
     def toggle_debug(self):
@@ -169,29 +177,63 @@ class Game(ShowBase):
         result = self.world.ray_test_closest(from_pos, to_pos, BitMask32.bit(2))
 
         if result.has_hit():
-            hit_node = result.get_node()
-            if not hit_node.has_tag('effecting'):
-                self.drops.find_neighbours(hit_node)
+            return result.get_node()
+
+        # if result.has_hit():
+        #     hit_node = result.get_node()
+        #     if not hit_node.has_tag('effecting'):
+        #         self.drops.find_neighbours(hit_node)
+
+
+    def udpate_player(self):
+        if self.clicked:
+            if self.mouseWatcherNode.has_mouse():
+                if player_choice := self.choose(self.mouseWatcherNode.get_mouse()):
+                    self.drops.find_neighbours(player_choice)
+            self.clicked = False
+
+    def update_game(self):
+        if not self.game_control.process():
+            self.state = Status.GAMEOVER
 
     def update(self, task):
         dt = globalClock.get_dt()
 
+        self.update_game()
         match self.state:
             case Status.PLAY:
-                if self.mouseWatcherNode.has_mouse():
-                    mouse_pos = self.mouseWatcherNode.get_mouse()
-                    if self.clicked:
-                        self.choose(mouse_pos)
-                        self.clicked = False
+                self.udpate_player()
 
-            case Status.RESTART:
-                if self.monitor.restart_check():
-                    self.state = Status.PAUSE
-                    self.initialize()
-
-        self.monitor.update()
         self.world.do_physics(dt)
         return task.cont
+
+
+
+    
+    # def update(self, task):
+    #     dt = globalClock.get_dt()
+
+    #     match self.state:
+    #         case Status.PLAY:
+    #             if self.clicked:
+    #                 if self.mouseWatcherNode.has_mouse():
+    #                     if player_choice := self.choose(self.mouseWatcherNode.get_mouse()):
+    #                         self.drops.find_neighbours(player_choice)
+    #                 self.clicked = False
+
+
+    #             if not self.game_control.process():
+    #                 self.state = Status.WARNING
+
+
+
+    #         case Status.RESTART:
+    #             if self.game_control.restart_check():
+    #                 self.state = Status.PAUSE
+    #                 self.initialize()
+
+    #     self.world.do_physics(dt)
+    #     return task.cont
 
 
 if __name__ == '__main__':

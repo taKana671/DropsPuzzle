@@ -11,7 +11,7 @@ from panda3d.core import TransformState
 
 from colors import theme_colors
 from create_geomnode import Sphere, Polyhedron
-from visual_effects import DisappearEffect, VFX, TextureAtlas, VFXSetting
+from visual_effects import VFXHandler, VFX, TextureAtlas, VFXSetting
 
 
 class Models(NodePath):
@@ -62,7 +62,7 @@ class Convex(Models):
 class Drop:
 
     def __init__(self, stage, vfx_setting, appendable,
-                 merge_into=None, model=None, scale=Vec3(1), last=False, score=0):
+                 merge_into=None, model=None, scale=Vec3(1), last=False, score=0, bonus=0):
         self.stage = stage
         self.merge_into = merge_into
         self.vfx = vfx_setting
@@ -70,6 +70,7 @@ class Drop:
         self.scale = scale
         self.last = last
         self.score = score
+        self.bonus = bonus
         self.model = model
 
     def set_model(self, geomnode):
@@ -78,14 +79,15 @@ class Drop:
 
 class Drops(NodePath):
 
-    def __init__(self, world):
+    def __init__(self, world, game_board):
         super().__init__(PandaNode('drops'))
         self.world = world
+        self.game_board = game_board
 
         self.smiley_q = deque()
         self.drops_q = deque()
         self.vfx_q = deque()
-        self.disappear_vfx = DisappearEffect(self.vfx_q)
+        self.vfx = VFXHandler(self.vfx_q)
         self.smiley = Smiley('d8', base.loader.loadModel('smiley'))
         self.setup_drops()
 
@@ -104,14 +106,14 @@ class Drops(NodePath):
         vfx_8 = VFXSetting(TextureAtlas('spark2.png'), scale=2.0, offset=Vec3(1, 0, 1), tgt_remove_row=3)
 
         self.drops = dict(
-            d1=Drop('d1', merge_into='d2', vfx_setting=vfx_1, appendable=True, scale=Vec3(0.4)),
-            d2=Drop('d2', merge_into='d3', vfx_setting=vfx_2, appendable=True, scale=Vec3(0.5)),
-            d3=Drop('d3', merge_into='d4', vfx_setting=vfx_3, appendable=True, scale=Vec3(0.6), score=100),
-            d4=Drop('d4', merge_into='d5', vfx_setting=vfx_4, appendable=True, scale=Vec3(0.8), score=200),
-            d5=Drop('d5', merge_into='d6', vfx_setting=vfx_5, appendable=False, scale=Vec3(1.0), score=400),
-            d6=Drop('d6', merge_into='d7', vfx_setting=vfx_6, appendable=False, scale=Vec3(1.2), score=500),
-            d7=Drop('d7', merge_into='d8', vfx_setting=vfx_7, appendable=False, scale=Vec3(1.5), score=600),
-            d8=Drop('d8', model=self.smiley, vfx_setting=vfx_8, appendable=False, score=1000, last=True)
+            d1=Drop('d1', merge_into='d2', vfx_setting=vfx_1, appendable=True, scale=Vec3(0.4), score=1),
+            d2=Drop('d2', merge_into='d3', vfx_setting=vfx_2, appendable=True, scale=Vec3(0.5), score=1),
+            d3=Drop('d3', merge_into='d4', vfx_setting=vfx_3, appendable=True, scale=Vec3(0.6), score=1, bonus=100),
+            d4=Drop('d4', merge_into='d5', vfx_setting=vfx_4, appendable=True, scale=Vec3(0.8), score=1, bonus=200),
+            d5=Drop('d5', merge_into='d6', vfx_setting=vfx_5, appendable=False, scale=Vec3(1.0), score=1, bonus=400),
+            d6=Drop('d6', merge_into='d7', vfx_setting=vfx_6, appendable=False, scale=Vec3(1.2), score=1, bonus=500),
+            d7=Drop('d7', merge_into='d8', vfx_setting=vfx_7, appendable=False, scale=Vec3(1.5), score=1, bonus=600),
+            d8=Drop('d8', model=self.smiley, vfx_setting=vfx_8, appendable=False, bonus=1000, last=True)
         )
 
     def change_drop_color(self):
@@ -151,7 +153,8 @@ class Drops(NodePath):
         self.cleanup()
         self.change_drop_color()
         self.serial = 0
-        self.complete_score = 0
+        self.smiley_born = False
+        self.smiley_jumping = False
         self.drops_add = []
 
     def get_start_pos(self, drop):
@@ -210,15 +213,17 @@ class Drops(NodePath):
                 self._neighbours(con_nd, tag, neighbours)
 
     def find_neighbours(self, clicked_nd):
-        neighbours = []
-        now_stage = clicked_nd.get_tag('stage')
-        self._neighbours(clicked_nd, now_stage, neighbours)
+        # if not (self.vfx.is_playing() or clicked_nd.has_tag('effecting')):
+        if not clicked_nd.has_tag('effecting'):
+            neighbours = []
+            now_stage = clicked_nd.get_tag('stage')
+            self._neighbours(clicked_nd, now_stage, neighbours)
 
-        if len(neighbours) >= 2:
-            drop = self.drops[now_stage]
-            next_stage = drop.merge_into
-            clicked_nd.set_tag('merge', next_stage)
-            self.disappear_vfx.start(drop.vfx, *neighbours)
+            if len(neighbours) >= 2:
+                drop = self.drops[now_stage]
+                next_stage = drop.merge_into
+                clicked_nd.set_tag('merge', next_stage)
+                self.vfx.start(drop.vfx, *neighbours)
 
     def set_drop_numbers(self, total):
         for key in self.drops_add[:-1]:
@@ -234,8 +239,10 @@ class Drops(NodePath):
     def add(self):
         match len(self.drops_add):
             case 0:
-                self.drops_add.append('d1')
-                total = random.randint(30, 40)
+                self.drops_add.append('d7')
+                total = random.randint(50, 50)
+                # self.drops_add.append('d1')
+                # total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -246,48 +253,48 @@ class Drops(NodePath):
         self.drops_q.extend(li)
 
     def merge(self):
-        score = 0
         try:
             np = self.vfx_q.pop()
+            score = self.drops[np.get_tag('stage')].score
 
             if next_stage := np.get_tag('merge'):
                 pos = np.get_pos()
                 next_drop = self.drops[next_stage]
-                score += next_drop.score
+                score += next_drop.bonus
                 self.copy_drop(next_drop.model, pos)
 
                 if next_drop.appendable and next_stage not in self.drops_add:
                     self.drops_add.append(next_stage)
+                self.add()
 
-                if not next_drop.last:
-                    self.add()
+            if not np.get_tag('first_smiley'):
+                self.delete(np)
 
-            self.delete(np)
-            score += 1
+            self.game_board.score_display.add(score)
         except IndexError:
             pass
 
-        return score
-
-    def update_complete_score(self):
-        self.complete_score += 1
+    # def finish_jump(self):
+    #     self.is_jumping = False
+    #     self.game_board.merge_display.add(1)
 
     def jump(self, delay=0.15):
         try:
             np = self.smiley_q.popleft()
-            drop = self.drops[np.get_tag('stage')]
+            vfx = self.drops[np.get_tag('stage')].vfx
 
-            vfx_func = Func(self.disappear_vfx.start, drop.vfx, np)
-            if not self.complete_score:
-                vfx_func = Func(VFX(drop.vfx, np).start)
+            if not self.smiley_born:
+                np.node().set_tag('first_smiley', 'true')
+                self.smiley_born = True
 
             Sequence(
                 Wait(delay),
                 Func(self.smiley.make_movable, np.node()),
                 SmileyRollingJumpInterval(np),
                 Func(self.add),
-                vfx_func,
-                Func(self.update_complete_score)
+                Func(self.vfx.start, vfx, np),
+                # Func(self.finish_jump)
+                Func(self.game_board.merge_display.add, 1)
             ).start()
 
         except IndexError:

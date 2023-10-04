@@ -76,7 +76,12 @@ class Effect(NodePath):
         self.vfx_end_v = settings.vfx_end_v
         self.settings = settings
 
+        self.force_stop = False
+
     def run(self):
+        if self.force_stop:
+            return True
+
         if self.target:
             self.set_pos(self.target.get_pos(base.render) + self.offset)
 
@@ -161,7 +166,7 @@ class VFX:
         self._finish = True
 
 
-class DisappearEffect:
+class VFXHandler:
 
     def __init__(self, queue):
         self.root = NodePath('vfx_root')
@@ -178,7 +183,7 @@ class DisappearEffect:
 
     def start(self, vfx_settings, *targets, delay=0.05):
         effects = [vfx for vfx in self.make_effect(vfx_settings, *targets)]
-        base.taskMgr.do_method_later(delay, self.run, 'vfx_disappear', extraArgs=[effects], appendTask=True)
+        base.taskMgr.do_method_later(delay, self.run, 'vfx', extraArgs=[effects], appendTask=True)
 
     def run(self, effects, task):
         if effects := [vfx for vfx in effects if not self.disappear(vfx)]:
