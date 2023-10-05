@@ -148,7 +148,7 @@ class GameBoard(NodePath):
             nd = con.get_node0()
             yield nd
 
-    def maybe_find_overflow(self):
+    def maybe_overflow(self):
         from_pt = self.cabinet.dims.top_left + Vec3(0, 0, 1)
         to_pt = self.cabinet.dims.top_right + Vec3(0, 0, 1)
 

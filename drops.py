@@ -155,6 +155,9 @@ class Drops(NodePath):
         self.serial = 0
         self.smiley_born = False
         self.smiley_jumping = False
+
+        self.is_merging = False
+
         self.drops_add = []
 
     def get_start_pos(self, drop):
@@ -214,7 +217,8 @@ class Drops(NodePath):
 
     def find_neighbours(self, clicked_nd):
         # if not (self.vfx.is_playing() or clicked_nd.has_tag('effecting')):
-        if not clicked_nd.has_tag('effecting'):
+        # if not clicked_nd.has_tag('effecting'):
+        if not self.is_merging:
             neighbours = []
             now_stage = clicked_nd.get_tag('stage')
             self._neighbours(clicked_nd, now_stage, neighbours)
@@ -222,6 +226,9 @@ class Drops(NodePath):
             if len(neighbours) >= 2:
                 drop = self.drops[now_stage]
                 next_stage = drop.merge_into
+
+                self.is_merging = True
+
                 clicked_nd.set_tag('merge', next_stage)
                 self.vfx.start(drop.vfx, *neighbours)
 
@@ -258,6 +265,8 @@ class Drops(NodePath):
             score = self.drops[np.get_tag('stage')].score
 
             if next_stage := np.get_tag('merge'):
+                self.is_merging = False
+
                 pos = np.get_pos()
                 next_drop = self.drops[next_stage]
                 score += next_drop.bonus

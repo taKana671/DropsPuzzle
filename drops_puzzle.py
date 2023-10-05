@@ -83,8 +83,8 @@ class Game(ShowBase):
 
         self.accept('escape', sys.exit)
         self.accept('d', self.toggle_debug)
-        self.accept('mouse1', self.mouse_click) 
-        self.accept('gameover', self.gameover)
+        self.accept('mouse1', self.mouse_click)
+        self.accept('finish', self.gameover)
         self.accept('reboot', self.initialize)
         self.taskMgr.add(self.update, 'update')
 
@@ -112,8 +112,8 @@ class Game(ShowBase):
     def start_game(self, is_add=False):
         print('start_game!!!!')
         self.accept('escape', self.pause)
-        self.clicked = False
         self.game_board.show_displays()
+        self.clicked = False
         self.state = Status.PLAY
         if is_add:
             self.drops.add()
@@ -127,11 +127,9 @@ class Game(ShowBase):
         self.screen.fade_out(self.start_game, True)
 
     def pause(self):
-        # if self.state != Status.GAMEOVER:
         if self.game_control.pause_game():
             print('pause!!!!')
             self.ignore('escape')
-            # self.game_board.stop_gameover_judge()
             self.state = Status.PAUSE
             self.game_board.hide_displays()
             self.screen.gui = self.pause_frame
@@ -140,14 +138,13 @@ class Game(ShowBase):
     def continue_game(self):
         print('continue!!!!')
         self.ignore('escape')
-        self.state = Status.PLAY
         self.game_control.resume_game()
         self.screen.fade_out(self.start_game)
 
     def gameover(self):
         print('gameover!!!!')
         self.ignore('escape')
-        # self.state = Status.GAMEOVER
+        self.state = Status.GAMEOVER
         self.game_board.hide_displays()
         self.screen.gui = self.start_frame
         self.screen.fade_in(self.accept, 'escape', sys.exit)
@@ -155,7 +152,7 @@ class Game(ShowBase):
     def reboot(self):
         self.game_control.reboot_game()
         self.initialize()
-        self.state = Status.RESTART
+        # self.state = Status.RESTART
 
     def toggle_debug(self):
         if self.debug.is_hidden():
@@ -193,8 +190,9 @@ class Game(ShowBase):
             self.clicked = False
 
     def update_game(self):
-        if not self.game_control.process():
-            self.state = Status.GAMEOVER
+        self.game_control.process()
+        # if not self.game_control.process():
+        #     self.state = Status.GAMEOVER
 
     def update(self, task):
         dt = globalClock.get_dt()
