@@ -201,6 +201,10 @@ class VFXHandler:
             vfx.remove_node()
             return True
 
-    def is_playing(self):
-        if base.taskMgr.getTasksNamed('vfx_disappear'):
-            return True
+    def cleanup(self):
+        for task in base.taskMgr.getTasksNamed('vfx'):
+            args = task.getArgs()
+            vfx_li, _ = args
+
+            for vfx in vfx_li:
+                vfx.force_stop = True

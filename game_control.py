@@ -22,10 +22,10 @@ class BlinkingSequence(Sequence):
 
 class WarningSequence(Sequence):
 
-    def __init__(self, np_list):
+    def __init__(self, np_list, callback, *args, **kwargs):
         super().__init__()
         self.append_blinks(np_list)
-        self.append(Func(base.messenger.send, 'finish'))
+        self.append(Func(callback, *args, **kwargs))
 
     def append_blinks(self, np_list):
         for _ in range(3):
@@ -42,6 +42,11 @@ class GameControl:
         self.state = None
 
     def initialize(self):
+        self.drops.initialize()
+        self.game_board.initialize()
+
+    def start(self):
+        self.game_board.show_displays()
         self.before = globalClock.get_frame_time()
         self.state = Status.PROCESSING
 
@@ -49,6 +54,7 @@ class GameControl:
         match self.state:
             case Status.FINISH:
                 self.warn_gameover()
+                return False
 
             case Status.PROCESSING:
                 self.drops.fall()
@@ -62,15 +68,19 @@ class GameControl:
                         self.before = None
                     else:
                         self.before = globalClock.get_frame_time()
+        return True
+
+    def end_process(self):
+        self.game_board.hide_displays()
+        base.messenger.send('finish')
 
     def warn_gameover(self):
-        overflow = [
-            np for np in self.drops.get_children() if self.game_board.is_in_gameover_zone(np)]
-        WarningSequence(overflow).start()
         self.state = None
+        overflow = [np for np in self.drops.get_children() if self.game_board.is_outside(np)]
+        WarningSequence(overflow, self.end_process).start()
 
     def judge(self):
-        if len([np for np in self.find_overflow()]) >= 3:   # 20:
+        if len([np for np in self.find_overflow()]) >= 20:
             self.state = Status.FINISH
         else:
             self.state = Status.PROCESSING
@@ -92,23 +102,12 @@ class GameControl:
 
         for nd in neighbours:
             np = NodePath(nd)
-            if self.game_board.is_overflow(np):
+            if self.game_board.is_outside(np):
                 yield np
 
     def pause_game(self):
         if self.state == Status.PROCESSING:
             self.before = None
+            self.game_board.hide_displays()
             base.task_mgr.remove('confirm')
             return True
-
-    def resume_game(self):
-        self.before = globalClock.get_frame_time()
-
-    def reboot_game(self):
-        for task in base.taskMgr.getTasksNamed('vfx'):
-            args = task.getArgs()
-            vfx_li, _ = args
-
-            for vfx in vfx_li:
-                vfx.force_stop = True
-        self.state = None

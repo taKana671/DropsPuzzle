@@ -1,3 +1,5 @@
+import logging
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 from panda3d.core import LineSegs
@@ -42,3 +44,23 @@ def round(val, digit=2):
 def round_float(f, digit='0.01'):
     rounded = Decimal(str(f)).quantize(Decimal(digit), rounding=ROUND_HALF_UP)
     return float(rounded)
+
+
+def set_logger():
+    logger = logging.getLogger('log')
+    logger.setLevel(logging.DEBUG)
+    fmt = logging.Formatter('%(asctime)s [%(levelname)s] %(filename)s %(message)s')
+
+    import sys
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(logging.DEBUG)
+    stream_handler.setFormatter(fmt)
+    logger.addHandler(stream_handler)
+
+    file_name = f'merge_ball_{datetime.now().strftime("%Y%m%d%H%M%S")}.log'
+    file_handler = logging.FileHandler(file_name)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(fmt)
+    logger.addHandler(file_handler)
+
+    # logger.info('setting log')

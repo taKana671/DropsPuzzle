@@ -11,7 +11,7 @@ from panda3d.core import TransformState
 
 from colors import theme_colors
 from create_geomnode import Sphere, Polyhedron
-from visual_effects import VFXHandler, VFX, TextureAtlas, VFXSetting
+from visual_effects import VFXHandler, TextureAtlas, VFXSetting
 
 
 class Models(NodePath):
@@ -62,13 +62,12 @@ class Convex(Models):
 class Drop:
 
     def __init__(self, stage, vfx_setting, appendable,
-                 merge_into=None, model=None, scale=Vec3(1), last=False, score=0, bonus=0):
+                 merge_into=None, model=None, scale=Vec3(1), score=0, bonus=0):
         self.stage = stage
         self.merge_into = merge_into
         self.vfx = vfx_setting
         self.appendable = appendable
         self.scale = scale
-        self.last = last
         self.score = score
         self.bonus = bonus
         self.model = model
@@ -94,6 +93,7 @@ class Drops(NodePath):
         self.colors = theme_colors[:]
         random.shuffle(self.colors)
         self.color_idx = 0
+        self.jump_seq = None
 
     def setup_drops(self):
         vfx_1 = VFXSetting(TextureAtlas('boom_fire.png'), scale=2.0, tgt_remove_row=2)
@@ -113,7 +113,7 @@ class Drops(NodePath):
             d5=Drop('d5', merge_into='d6', vfx_setting=vfx_5, appendable=False, scale=Vec3(1.0), score=1, bonus=400),
             d6=Drop('d6', merge_into='d7', vfx_setting=vfx_6, appendable=False, scale=Vec3(1.2), score=1, bonus=500),
             d7=Drop('d7', merge_into='d8', vfx_setting=vfx_7, appendable=False, scale=Vec3(1.5), score=1, bonus=600),
-            d8=Drop('d8', model=self.smiley, vfx_setting=vfx_8, appendable=False, bonus=1000, last=True)
+            d8=Drop('d8', model=self.smiley, vfx_setting=vfx_8, appendable=False, bonus=1000)
         )
 
     def change_drop_color(self):
@@ -145,19 +145,21 @@ class Drops(NodePath):
         for np in self.get_children():
             self.delete(np)
 
+        if self.jump_seq:
+            self.jump_seq.pause()
+            self.jump_seq = None
+
         self.smiley_q.clear()
         self.drops_q.clear()
         self.vfx_q.clear()
+        self.vfx.cleanup()
 
     def initialize(self):
         self.cleanup()
         self.change_drop_color()
         self.serial = 0
         self.smiley_born = False
-        self.smiley_jumping = False
-
         self.is_merging = False
-
         self.drops_add = []
 
     def get_start_pos(self, drop):
@@ -216,8 +218,6 @@ class Drops(NodePath):
                 self._neighbours(con_nd, tag, neighbours)
 
     def find_neighbours(self, clicked_nd):
-        # if not (self.vfx.is_playing() or clicked_nd.has_tag('effecting')):
-        # if not clicked_nd.has_tag('effecting'):
         if not self.is_merging:
             neighbours = []
             now_stage = clicked_nd.get_tag('stage')
@@ -246,10 +246,8 @@ class Drops(NodePath):
     def add(self):
         match len(self.drops_add):
             case 0:
-                self.drops_add.append('d7')
-                total = random.randint(50, 50)
-                # self.drops_add.append('d1')
-                # total = random.randint(30, 40)
+                self.drops_add.append('d1')
+                total = random.randint(30, 40)
             case 2:
                 total = random.randint(20, 30)
             case _:
@@ -283,9 +281,9 @@ class Drops(NodePath):
         except IndexError:
             pass
 
-    # def finish_jump(self):
-    #     self.is_jumping = False
-    #     self.game_board.merge_display.add(1)
+    def finish_jump(self):
+        self.jump_seq = None
+        self.game_board.merge_display.add(1)
 
     def jump(self, delay=0.15):
         try:
@@ -296,15 +294,15 @@ class Drops(NodePath):
                 np.node().set_tag('first_smiley', 'true')
                 self.smiley_born = True
 
-            Sequence(
+            self.jump_seq = Sequence(
                 Wait(delay),
                 Func(self.smiley.make_movable, np.node()),
                 SmileyRollingJumpInterval(np),
                 Func(self.add),
                 Func(self.vfx.start, vfx, np),
-                # Func(self.finish_jump)
-                Func(self.game_board.merge_display.add, 1)
-            ).start()
+                Func(self.finish_jump)
+            )
+            self.jump_seq.start()
 
         except IndexError:
             pass

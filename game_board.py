@@ -114,18 +114,14 @@ class GameBoard(NodePath):
         self.cabinet.reparent_to(self)
         self.world.attach(self.cabinet.node())
 
-        self.score_display = NumberDisplay('score_display', (0.05, -0.2), text='0')
+        self.score_display = NumberDisplay('score_display', (0.05, -0.2))
         self.merge_display = NumberDisplay('num_display', (2.5, -0.2))
 
         self.sensor = BottomSensor()
         self.sensor.reparent_to(self)
         self.world.attach(self.sensor.node())
-
-    def is_overflow(self, np):
-        if np.get_z() > self.cabinet.dims.top:
-            return True
-
-    def is_in_gameover_zone(self, np):
+ 
+    def is_outside(self, np):
         pos = np.get_pos()
         if self.cabinet.dims.left < pos.x < self.cabinet.dims.right \
                 and pos.z > self.cabinet.dims.top:
@@ -157,7 +153,6 @@ class GameBoard(NodePath):
             to_pt,
             BitMask32.bit(3)
         )
-        print('maybe overflow? ', result.has_hit())
         return result.has_hit()
 
 
