@@ -120,7 +120,7 @@ class GameBoard(NodePath):
         self.sensor = BottomSensor()
         self.sensor.reparent_to(self)
         self.world.attach(self.sensor.node())
- 
+
     def is_outside(self, np):
         pos = np.get_pos()
         if self.cabinet.dims.left < pos.x < self.cabinet.dims.right \
@@ -159,7 +159,7 @@ class GameBoard(NodePath):
 class NumberDisplay(OnscreenText):
 
     def __init__(self, name, pos, scale=0.1, fg=(1, 1, 1, 1), text=''):
-        font = base.loader.loadFont('font/SegUIVar.ttf')
+        font = base.loader.loadFont('font/Candaral.ttf')
         super().__init__(
             text=text,
             parent=base.a2dTopLeft,
