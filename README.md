@@ -14,8 +14,10 @@ Rules are simple. Only need to combine balls with the same color, size and shape
 
 # Usage
 * Execute a command below on your command line.
-* Click on a ball.
 ```
 >>>python merge_balls.py
 ```
-
+* Click [PLAY]button on screen to start game.
+* If starting the game, some balls will fall. Click one of them, and the balls next to each other with the same color, size and shape will be merged into a bigger new ball.
+* Pressing [Esc]key shows a pause screen. To resume the game, click [continue]button. To reboot, click [reset]button. When the game is reset, the theme color of the balls is changed.
+* Pressing [D]key toggles debug mode on and off. You can see collision shapes in debug mode.
