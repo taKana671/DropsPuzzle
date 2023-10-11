@@ -21,4 +21,4 @@ Rules are simple. Only need to combine balls with the same color, size and shape
 * If starting the game, some balls will fall due to gravity. Click one of them, and the balls next to each other with the same color, size and shape will be merged into a bigger new ball.
 * Pressing [Esc]key shows a pause screen. To resume the game, click [continue]button. To reboot, click [reset]button. When the game is reset, the theme color of the balls is changed.
 * If some of the balls overflow the game cabinet, they blink three times, which means gameover.   
-* Pressing [D]key toggles debug mode on and off. You can see collision shapes in debug mode.
+* Pressing [D]key toggles debug mode on and off. You can see collision shapes in the debug mode.
