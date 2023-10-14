@@ -1,9 +1,7 @@
 import array
 import functools
-import random
-from enum import Enum
 
-from panda3d.core import Vec3, Point3, LColor
+from panda3d.core import Vec3, Point3
 from panda3d.core import NodePath
 from panda3d.core import Geom, GeomNode, GeomTriangles
 from panda3d.core import GeomVertexFormat, GeomVertexData, GeomVertexArrayFormat
@@ -14,87 +12,39 @@ from utils import load_obj
 OBJ_DIR = 'objs'
 
 
-# class Colors(Enum):
-
-#     RED = LColor(1, 0, 0, 1)
-#     BLUE = LColor(0, 0, 1, 1)
-#     YELLOW = LColor(1, 1, 0, 1)
-#     GREEN = LColor(0, 0.5, 0, 1)
-#     ORANGE = LColor(1, 0.549, 0, 1)
-#     MAGENTA = LColor(1, 0, 1, 1)
-#     PURPLE = LColor(0.501, 0, 0.501, 1)
-#     SKY = LColor(0, 0.74, 1, 1)
-#     LIME = LColor(0, 1, 0, 1)
-#     VIOLET = LColor(0.54, 0.16, 0.88, 1)
-
-#     @classmethod
-#     def select(cls, n):
-#         return random.sample([m.value for m in cls], n)
-
-# class Colors(Enum):
-
-#     BRIGHT = LColor(0.93, 0.68, 0.51, 1)
-#     DARK = LColor(0.3, 0.18, 0.1, 1)
-#     DARK_GRAYISH = LColor(0.25, 0.19, 0.15, 1)
-#     DEEP = LColor(0.49, 0.24, 0.07, 1)
-#     DULL = LColor(0.63, 0.38, 0.21, 1)
-#     GRAYISH = LColor(0.53, 0.4, 0.31, 1)
-#     # LIGHT = LColor(0.93, 0.84, 0.78, 1)
-#     LIGHT_GRAYISH = LColor(0.72, 0.61, 0.54, 1)
-#     # PALE = LColor(0.89, 0.84, 0.81, 1)
-#     SOFT = LColor(0.82, 0.59, 0.44, 1)
-#     STRONG = LColor(0.87, 0.42, 0.13, 1)
-#     VIVID = LColor(1.0, 0.4, 0.0, 1)
-
-
-#     @classmethod
-#     def select(cls, n):
-#         return random.sample([m.value for m in cls], n)
-
-# class Colors(Enum):
-
-#     VIVID = LColor(0.0, 1.0, 0.9, 1)
-#     BRIGHT = LColor(0.51, 0.93, 0.89, 1)
-#     STRONG = LColor(0.13, 0.87, 0.8, 1)
-#     DEEP = LColor(0.07, 0.49, 0.45, 1)
-#     # LIGHT = LColor(0.78, 0.93, 0.91, 1)
-#     SOFT = LColor(0.44, 0.82, 0.78, 1)
-#     DULL = LColor(0.21, 0.63, 0.59, 1)
-#     DARK = LColor(0.1, 0.3, 0.28, 1)
-#     # PALE = LColor(0.81, 0.89, 0.88, 1)
-#     LIGHT_GRAYISH = LColor(0.54, 0.72, 0.71, 1)
-#     GRAYISH = LColor(0.31, 0.53, 0.51, 1)
-#     DARK_GRAYISH = LColor(0.15, 0.25, 0.24, 1)
-
-#     @classmethod
-#     def select(cls, n):
-#         return random.sample([m.value for m in cls], n)
-
-
 class GeomRoot(NodePath):
 
-    def __init__(self):
-        geomnode = self.create_geomnode()
+    def __init__(self, name, tex=True):
+        geomnode = self.create_geomnode(name, tex)
         super().__init__(geomnode)
         self.set_two_sided(True)
 
-    def create_format(self):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        if 'create_vertices' not in cls.__dict__:
+            raise NotImplementedError('Subclasses should implement create_vertices.')
+
+    def create_format(self, tex):
         arr_format = GeomVertexArrayFormat()
         arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
         arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
         arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CColor)
-        arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+
+        if tex:
+            arr_format.add_column('texcoord', 2, Geom.NTFloat32, Geom.CTexcoord)
+
         fmt = GeomVertexFormat.register_format(arr_format)
         return fmt
 
-    def create_geomnode(self):
-        fmt = self.create_format()
+    def create_geomnode(self, name, tex):
+        fmt = self.create_format(tex)
         vdata_values = array.array('f', [])
         prim_indices = array.array('H', [])
 
         vertex_count = self.create_vertices(vdata_values, prim_indices)
 
-        vdata = GeomVertexData('tube', fmt, Geom.UHStatic)
+        vdata = GeomVertexData(name, fmt, Geom.UHStatic)
         vdata.unclean_set_num_rows(vertex_count)
         vdata_mem = memoryview(vdata.modify_array(0)).cast('B').cast('f')
         vdata_mem[:] = vdata_values
@@ -131,7 +81,7 @@ class Cube(GeomRoot):
         self.segs_d = segs_d
         self.segs_h = segs_h
         self.color = (1, 1, 1, 1)
-        super().__init__()
+        super().__init__('cube')
 
     def create_vertices(self, vdata_values, prim_indices):
         vertex_count = 0
@@ -203,7 +153,7 @@ class RightTriangularPrism(GeomRoot):
         self.h = h
         self.segs_h = segs_h
         self.color = (1, 1, 1, 1)
-        super().__init__()
+        super().__init__('right_triangular_prism')
 
     def create_caps(self, points, index_offset, vdata_values, prim_indices):
         vertex_count = 0
@@ -297,7 +247,7 @@ class TextureAtlasNode(GeomRoot):
         self.max_u = max_u
         self.start_v = start_v
         self.color = (1, 1, 1, 1)
-        super().__init__()
+        super().__init__('texture_atlas')
 
     def create_vertices(self, vdata_values, prim_indices):
         vertices = [
@@ -327,19 +277,7 @@ class TextureAtlasNode(GeomRoot):
         return len(vertices)
 
 
-class DropsGeomRoot(GeomRoot):
-
-    def create_format(self):
-        arr_format = GeomVertexArrayFormat()
-        arr_format.add_column('vertex', 3, Geom.NTFloat32, Geom.CPoint)
-        arr_format.add_column('color', 4, Geom.NTFloat32, Geom.CColor)
-        arr_format.add_column('normal', 3, Geom.NTFloat32, Geom.CNormal)
-        fmt = GeomVertexFormat.register_format(arr_format)
-
-        return fmt
-
-
-class Sphere(DropsGeomRoot):
+class Sphere(GeomRoot):
     """Create a geom node of sphere.
         Arges:
             divnum (int): the number of divisions of a triangle; cannot be negative;
@@ -354,7 +292,7 @@ class Sphere(DropsGeomRoot):
         self.divnum = divnum
         self.pattern = pattern
         self.colors = colors
-        super().__init__()
+        super().__init__('sphere', False)
 
     def calc_midpoints(self, face):
         """face (list): list of Vec3; having 3 elements like below.
@@ -392,19 +330,17 @@ class Sphere(DropsGeomRoot):
                     self.get_vertex_color,
                     lambda vertices: 0,
                     self.colors.select(1)
-                )                          # Colors.select(1))
+                )
             case 1:
                 get_vertex_color = functools.partial(
                     self.get_vertex_color,
                     lambda vertices: 0 if any(not (v.z or v.x) or not (v.z or v.y) or not (v.x or v.y) for v in vertices) else 1,
                     self.colors.select(2)
-                    # Colors.select(2)
                 )
             case 2:
                 get_vertex_color = functools.partial(
                     self.get_vertex_color,
                     lambda vertices: 0 if any(v.z == 0 for v in vertices) else 1,
-                    # Colors.select(2)
                     self.colors.select(2)
                 )
 
@@ -426,12 +362,12 @@ class Sphere(DropsGeomRoot):
         return 4 ** self.divnum * 20 * 3
 
 
-class Polyhedron(DropsGeomRoot):
+class Polyhedron(GeomRoot):
 
     def __init__(self, colors, file_name):
         self.obj_file = f'{OBJ_DIR}/{file_name}'
         self.colors = colors
-        super().__init__()
+        super().__init__('polyhedron', False)
 
     def triangle(self, start):
         return (start, start + 1, start + 2)
@@ -459,7 +395,6 @@ class Polyhedron(DropsGeomRoot):
     def create_vertices(self, vdata_values, prim_indices):
         vertices, faces = load_obj(self.obj_file)
         nums = set(len(face) for face in faces)
-        # colors = Colors.select(len(nums))
         colors = self.colors.select(len(nums))
         face_color = {n: colors[i] for i, n in enumerate(nums)}
 
